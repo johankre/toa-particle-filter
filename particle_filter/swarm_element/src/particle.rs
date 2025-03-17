@@ -9,7 +9,7 @@ pub struct Particle {
 }
 
 pub struct Particles {
-    particles: Vec<Particle>,
+    pub particles: Vec<Particle>,
 }
 
 impl Particle {
@@ -23,7 +23,7 @@ impl Particle {
 
 impl Particles {
     pub(crate) fn new(
-        num_particels: usize,
+        num_particles: usize,
         x_bounds: (f32, f32),
         y_bounds: (f32, f32),
         z_bounds: (f32, f32),
@@ -33,13 +33,13 @@ impl Particles {
         let y_uni = Uniform::new(y_bounds.0, y_bounds.1).unwrap();
         let z_uni = Uniform::new(z_bounds.0, z_bounds.1).unwrap();
 
-        let particles: Vec<Particle> = (0..num_particels)
+        let particles: Vec<Particle> = (0..num_particles)
             .map(|_| {
                 Particle::new(
                     rng.sample(x_uni),
                     rng.sample(y_uni),
                     rng.sample(z_uni),
-                    1.0 / (num_particels as f64),
+                    1.0 / (num_particles as f64),
                 )
             })
             .collect();
@@ -54,10 +54,6 @@ impl Particles {
 
 #[cfg(test)]
 mod tests {
-    use rand::seq::IndexedRandom;
-
-    use crate::particle;
-
     use super::*;
 
     #[test]
@@ -73,9 +69,9 @@ mod tests {
         let y_bounds = (0.0, 1.0);
         let z_bounds = (0.0, 1.0);
 
-        let num_particels = 100;
+        let num_particles = 100;
 
-        let particles = Particles::new(num_particels, x_bounds, y_bounds, z_bounds);
+        let particles = Particles::new(num_particles, x_bounds, y_bounds, z_bounds);
 
         for particle in particles.particles.iter() {
             assert!(x_bounds.0 <= particle.position.x);
@@ -95,9 +91,9 @@ mod tests {
         let y_bounds = (0.0, 2.0);
         let z_bounds = (0.0, 3.0);
 
-        let num_particels = 10_000;
+        let num_particles = 10_000;
 
-        let particles = Particles::new(num_particels, x_bounds, y_bounds, z_bounds);
+        let particles = Particles::new(num_particles, x_bounds, y_bounds, z_bounds);
 
         let x_mean = (x_bounds.1 - x_bounds.0) / 2.0;
         let y_mean = (y_bounds.1 - y_bounds.0) / 2.0;
@@ -113,9 +109,9 @@ mod tests {
             z_sum += p.position.z;
         });
 
-        let x_empirical_mean = x_sum / (num_particels as f32);
-        let y_empirical_mean = y_sum / (num_particels as f32);
-        let z_empirical_mean = z_sum / (num_particels as f32);
+        let x_empirical_mean = x_sum / (num_particles as f32);
+        let y_empirical_mean = y_sum / (num_particles as f32);
+        let z_empirical_mean = z_sum / (num_particles as f32);
 
         let tolerance = 0.1;
 
@@ -130,9 +126,9 @@ mod tests {
         let y_bounds = (0.0, 1.0);
         let z_bounds = (0.0, 1.0);
 
-        let num_particels = 4;
+        let num_particles = 4;
 
-        let mut particles = Particles::new(num_particels, x_bounds, y_bounds, z_bounds);
+        let mut particles = Particles::new(num_particles, x_bounds, y_bounds, z_bounds);
 
         for i in 0..particles.particles.len() {
             particles.particles[i].weight = 1.0 + i as f64;
