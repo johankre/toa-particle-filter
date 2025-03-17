@@ -18,22 +18,21 @@ jobs:
       uses: actions/checkout@v4
 
     - name: format particle_filter
-      working-directory: particle_filter
       run: |
         cd particle_filter
         cargo fmt -- --check
 
     - name: build particle_filter
-      working-directory: particle_filter
       run: |
+        cd particle_filter
         cargo build --verbose
 
     - name: unit test particle_filter
-      working-directory: particle_filter
       run: |
+        cd particle_filter
         cargo test
 
     - name: unit test swarm_element
-      working-directory: particle_filter/swarm_element
       run: |
+        cd particle_filter/swarm_element
         cargo test
