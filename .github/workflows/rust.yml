@@ -11,19 +11,15 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
+    - name: Checkout repository
     - uses: actions/checkout@v4
-    - name: Format
+
+    - name: Format, Build and Test
     run: |
       cd particle_filter
       cargo fmt -- --check
-
-      working-directory: particle_filter
-      run: cargo fmt -- --check
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+      cargo build --verbose
+      cargo test --verbose
