@@ -1,6 +1,7 @@
 use nalgebra::Vector3;
 use rand::distr::Uniform;
 use rand::Rng;
+use rayon::prelude::*;
 
 pub struct Particle {
     pub position: Vector3<f32>,
@@ -44,6 +45,10 @@ impl Particles {
             .collect();
 
         Particles { particles }
+    }
+    pub fn normalize_weights(&mut self) {
+        let sum: f64 = self.particles.iter().map(|p| p.weight).sum();
+        self.particles.par_iter_mut().for_each(|p| p.weight /= sum);
     }
 }
 
