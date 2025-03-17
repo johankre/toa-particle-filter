@@ -17,7 +17,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Format
-      run: carog fmt -- --check
+    run: |
+      cd particle_filter
+      cargo fmt -- --check
+
+      working-directory: particle_filter
+      run: cargo fmt -- --check
     - name: Build
       run: cargo build --verbose
     - name: Run tests
