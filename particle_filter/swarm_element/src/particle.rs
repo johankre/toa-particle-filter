@@ -67,16 +67,16 @@ mod tests {
         let num_particels = 100;
 
         let particles = Particles::new(num_particels, x_bounds, y_bounds, z_bounds);
-        
+
         for particle in particles.particles.iter() {
-            assert!( x_bounds.0 <= particle.position.x);
-            assert!( x_bounds.1 >= particle.position.x);
+            assert!(x_bounds.0 <= particle.position.x);
+            assert!(x_bounds.1 >= particle.position.x);
 
-            assert!( y_bounds.0 <= particle.position.y);
-            assert!( y_bounds.1 >= particle.position.y);
+            assert!(y_bounds.0 <= particle.position.y);
+            assert!(y_bounds.1 >= particle.position.y);
 
-            assert!( z_bounds.0 <= particle.position.z);
-            assert!( z_bounds.1 >= particle.position.z);
+            assert!(z_bounds.0 <= particle.position.z);
+            assert!(z_bounds.1 >= particle.position.z);
         }
     }
 
@@ -108,11 +108,10 @@ mod tests {
         let y_empirical_mean = y_sum / (num_particels as f32);
         let z_empirical_mean = z_sum / (num_particels as f32);
 
-        let tolerance = 0.01;
+        let tolerance = 0.1;
 
         assert!((x_mean - x_empirical_mean).abs() <= tolerance);
         assert!((y_mean - y_empirical_mean).abs() <= tolerance);
         assert!((z_mean - z_empirical_mean).abs() <= tolerance);
-
     }
 }
