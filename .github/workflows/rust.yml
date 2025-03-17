@@ -14,12 +14,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
+    - name: checkout repository
       uses: actions/checkout@v4
 
-    - name: Format, Build and Test
+    - name: format particle_filter
       run: |
         cd particle_filter
         cargo fmt -- --check
+
+    - name: build particle_filter
+      run: |
         cargo build --verbose
-        cargo test --verbose
+
+    - name: unit test particle_filter
+      run: |
+        cargo test
+
+    - name: unit test swarm_element
+      run: |
+        cd particle_filter/swarm_element
+        cargo test

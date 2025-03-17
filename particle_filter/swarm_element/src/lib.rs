@@ -1,4 +1,4 @@
-mod swarm_element;
+pub mod swarm_element;
 
-mod particle;
-pub use particle::Particles;
+pub mod particle;
+use particle::Particles;
