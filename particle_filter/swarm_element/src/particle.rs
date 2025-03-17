@@ -54,6 +54,10 @@ impl Particles {
 
 #[cfg(test)]
 mod tests {
+    use rand::seq::IndexedRandom;
+
+    use crate::particle;
+
     use super::*;
 
     #[test]
@@ -118,5 +122,25 @@ mod tests {
         assert!((x_mean - x_empirical_mean).abs() <= tolerance);
         assert!((y_mean - y_empirical_mean).abs() <= tolerance);
         assert!((z_mean - z_empirical_mean).abs() <= tolerance);
+    }
+
+    #[test]
+    fn test_normalize_weitghts() {
+        let x_bounds = (0.0, 1.0);
+        let y_bounds = (0.0, 1.0);
+        let z_bounds = (0.0, 1.0);
+
+        let num_particels = 4;
+
+        let mut particles = Particles::new(num_particels, x_bounds, y_bounds, z_bounds);
+
+        for i in 0..particles.particles.len() {
+            particles.particles[i].weight = 1.0 + i as f64;
+        }
+
+        particles.normalize_weights();
+
+        let particle_weight_sum: f64 = particles.particles.iter().map(|p| p.weight).sum();
+        assert!(particle_weight_sum == 1.0);
     }
 }
