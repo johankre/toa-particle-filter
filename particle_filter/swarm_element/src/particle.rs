@@ -53,7 +53,7 @@ mod tests {
 
     #[test]
     fn test_particle_new() {
-        let particle = Paricle::new(1.0, 2.0, 3.0, 0.1);
+        let particle = Particle::new(1.0, 2.0, 3.0, 0.1);
         assert_eq!(particle.position, Vector3::new(1.0, 2.0, 3.0));
         assert_eq!(particle.weight, 0.1);
     }
