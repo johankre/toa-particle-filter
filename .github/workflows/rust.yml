@@ -15,11 +15,11 @@ jobs:
 
     steps:
     - name: Checkout repository
-    - uses: actions/checkout@v4
+      uses: actions/checkout@v4
 
     - name: Format, Build and Test
-    run: |
-      cd particle_filter
-      cargo fmt -- --check
-      cargo build --verbose
-      cargo test --verbose
+      run: |
+        cd particle_filter
+        cargo fmt -- --check
+        cargo build --verbose
+        cargo test --verbose
