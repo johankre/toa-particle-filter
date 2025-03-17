@@ -1,6 +1,6 @@
 use nalgebra::Vector3;
-use rand::distr::{Distribution, Uniform};
-use rand::{rng, Rng};
+use rand::distr::Uniform;
+use rand::Rng;
 
 pub struct Particle {
     pub position: Vector3<f32>,
@@ -56,5 +56,63 @@ mod tests {
         let particle = Particle::new(1.0, 2.0, 3.0, 0.1);
         assert_eq!(particle.position, Vector3::new(1.0, 2.0, 3.0));
         assert_eq!(particle.weight, 0.1);
+    }
+
+    #[test]
+    fn test_particles_new() {
+        let x_bounds = (0.0, 1.0);
+        let y_bounds = (0.0, 1.0);
+        let z_bounds = (0.0, 1.0);
+
+        let num_particels = 100;
+
+        let particles = Particles::new(num_particels, x_bounds, y_bounds, z_bounds);
+        
+        for particle in particles.particles.iter() {
+            assert!( x_bounds.0 <= particle.position.x);
+            assert!( x_bounds.1 >= particle.position.x);
+
+            assert!( y_bounds.0 <= particle.position.y);
+            assert!( y_bounds.1 >= particle.position.y);
+
+            assert!( z_bounds.0 <= particle.position.z);
+            assert!( z_bounds.1 >= particle.position.z);
+        }
+    }
+
+    #[test]
+    fn test_mean_uniform_particle_distribution() {
+        let x_bounds = (0.0, 1.0);
+        let y_bounds = (0.0, 2.0);
+        let z_bounds = (0.0, 3.0);
+
+        let num_particels = 10_000;
+
+        let particles = Particles::new(num_particels, x_bounds, y_bounds, z_bounds);
+
+        let x_mean = (x_bounds.1 - x_bounds.0) / 2.0;
+        let y_mean = (y_bounds.1 - y_bounds.0) / 2.0;
+        let z_mean = (z_bounds.1 - z_bounds.0) / 2.0;
+
+        let mut x_sum = 0.0;
+        let mut y_sum = 0.0;
+        let mut z_sum = 0.0;
+
+        particles.particles.iter().for_each(|p| {
+            x_sum += p.position.x;
+            y_sum += p.position.y;
+            z_sum += p.position.z;
+        });
+
+        let x_empirical_mean = x_sum / (num_particels as f32);
+        let y_empirical_mean = y_sum / (num_particels as f32);
+        let z_empirical_mean = z_sum / (num_particels as f32);
+
+        let tolerance = 0.01;
+
+        assert!((x_mean - x_empirical_mean).abs() <= tolerance);
+        assert!((y_mean - y_empirical_mean).abs() <= tolerance);
+        assert!((z_mean - z_empirical_mean).abs() <= tolerance);
+
     }
 }
