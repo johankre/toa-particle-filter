@@ -32,6 +32,11 @@ jobs:
         cd particle_filter
         cargo test
 
+    - name: format swarm_element
+      run: |
+        cd particle_filter/swarm_element
+        cargo fmt -- --check
+
     - name: unit test swarm_element
       run: |
         cd particle_filter/swarm_element
