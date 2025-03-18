@@ -1,5 +1,6 @@
 use crate::Particles;
 use nalgebra::Vector3;
+use rayon::prelude::*;
 
 pub struct SwarmElement {
     true_position: Vector3<f32>,
@@ -14,6 +15,15 @@ impl SwarmElement {
             est_position: Vector3::zeros(),
             particles: Particles::new(num_particles, (0.0, 1.0), (0.0, 1.0), (0.0, 1.0)),
         }
+    }
+
+    pub fn update_est_position(&mut self) {
+        self.est_position = self
+            .particles
+            .particles
+            .par_iter()
+            .map(|p| p.weight as f32 * p.position)
+            .sum();
     }
 }
 
