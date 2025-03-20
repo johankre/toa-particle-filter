@@ -5,12 +5,14 @@ use rayon::prelude::*;
 pub struct SwarmElement {
     true_position: Vector3<f32>,
     est_position: Vector3<f32>,
+    velocity: Vector3<f32>,
     particles: Particles,
 }
 
 impl SwarmElement {
     pub fn new(
         true_position: Vector3<f32>,
+        velocity: Vector3<f32>,
         num_particles: usize,
         x_bounds: (f32, f32),
         y_bounds: (f32, f32),
@@ -18,6 +20,7 @@ impl SwarmElement {
     ) -> Self {
         Self {
             true_position,
+            velocity,
             est_position: Vector3::zeros(),
             particles: Particles::new(num_particles, x_bounds, y_bounds, z_bounds),
         }
@@ -31,6 +34,10 @@ impl SwarmElement {
             .map(|p| p.weight as f32 * p.position)
             .sum();
     }
+
+    pub fn move_position(&mut self, time_step: f32) {
+        self.true_position += self.velocity * time_step;
+    }
 }
 
 #[cfg(test)]
@@ -40,13 +47,20 @@ mod tests {
     #[test]
     fn test_new_swarm_element() {
         let true_position = Vector3::new(0.5, 0.5, 0.5);
+        let velocity = Vector3::new(0.1, 0.1, 0.0);
         let num_particles = 10;
         let x_bounds = (0.0, 1.0);
         let y_bounds = (0.0, 1.0);
         let z_bounds = (0.0, 1.0);
 
-        let swarm_element =
-            SwarmElement::new(true_position, num_particles, x_bounds, y_bounds, z_bounds);
+        let swarm_element = SwarmElement::new(
+            true_position,
+            velocity,
+            num_particles,
+            x_bounds,
+            y_bounds,
+            z_bounds,
+        );
 
         assert_eq!(swarm_element.true_position, true_position);
         assert_eq!(swarm_element.est_position, Vector3::zeros());
@@ -61,13 +75,20 @@ mod tests {
     #[test]
     fn test_update_est_position() {
         let true_position = Vector3::new(0.5, 0.5, 0.5);
+        let velocity = Vector3::new(0.1, 0.1, 0.0);
         let num_particles = 10_000;
         let x_bounds = (0.0, 1.0);
         let y_bounds = (0.0, 2.0);
         let z_bounds = (0.0, 3.0);
 
-        let mut swarm_element =
-            SwarmElement::new(true_position, num_particles, x_bounds, y_bounds, z_bounds);
+        let mut swarm_element = SwarmElement::new(
+            true_position,
+            velocity,
+            num_particles,
+            x_bounds,
+            y_bounds,
+            z_bounds,
+        );
         swarm_element.update_est_position();
 
         let tolerance = 0.01;
@@ -81,5 +102,28 @@ mod tests {
         assert!(
             (swarm_element.est_position.z - (z_bounds.1 - z_bounds.0) / 2.0).abs() <= tolerance
         );
+    }
+
+    #[test]
+    fn test_move_swarm_element() {
+        let true_position = Vector3::new(0.5, 0.5, 0.5);
+        let velocity = Vector3::new(0.1, 0.1, 0.0);
+        let time_step = 1.0;
+        let num_particles = 10_000;
+        let x_bounds = (0.0, 1.0);
+        let y_bounds = (0.0, 2.0);
+        let z_bounds = (0.0, 3.0);
+
+        let mut swarm_element = SwarmElement::new(
+            true_position,
+            velocity,
+            num_particles,
+            x_bounds,
+            y_bounds,
+            z_bounds,
+        );
+
+        swarm_element.move_position(time_step);
+        assert_eq!(swarm_element.true_position, Vector3::new(0.6, 0.6, 0.5));
     }
 }
