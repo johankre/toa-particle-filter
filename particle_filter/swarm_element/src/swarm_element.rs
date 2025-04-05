@@ -76,7 +76,7 @@ mod tests {
     fn test_update_est_position() {
         let true_position = Vector3::new(0.5, 0.5, 0.5);
         let velocity = Vector3::new(0.1, 0.1, 0.0);
-        let num_particles = 10_000;
+        let num_particles = 100_000;
         let x_bounds = (0.0, 1.0);
         let y_bounds = (0.0, 2.0);
         let z_bounds = (0.0, 3.0);
