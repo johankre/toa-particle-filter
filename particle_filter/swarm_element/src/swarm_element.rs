@@ -108,6 +108,7 @@ mod tests {
     fn test_move_swarm_element() {
         let true_position = Vector3::new(0.5, 0.5, 0.5);
         let velocity = Vector3::new(0.1, 0.1, 0.0);
+        let time_step = 1.0;
         let num_particles = 10_000;
         let x_bounds = (0.0, 1.0);
         let y_bounds = (0.0, 2.0);
@@ -122,7 +123,7 @@ mod tests {
             z_bounds,
         );
 
-        swarm_element.move_position(1.0);
+        swarm_element.move_position(time_step);
         assert_eq!(swarm_element.true_position, Vector3::new(0.6, 0.6, 0.5));
     }
 }

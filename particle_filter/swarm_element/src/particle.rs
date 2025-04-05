@@ -47,8 +47,14 @@ impl Particles {
         Particles { particles }
     }
     pub fn normalize_weights(&mut self) {
-        let sum: f64 = self.particles.iter().map(|p| p.weight).sum();
+        let sum: f64 = self.particles.par_iter().map(|p| p.weight).sum();
         self.particles.par_iter_mut().for_each(|p| p.weight /= sum);
+    }
+
+    pub fn update_position(&mut self, velocity: Vector3<f32>, time_step: f32) {
+        self.particles
+            .par_iter_mut()
+            .for_each(|p| p.position += velocity * time_step);
     }
 }
 
@@ -87,11 +93,11 @@ mod tests {
 
     #[test]
     fn test_mean_uniform_particle_distribution() {
-        let x_bounds = (0.0, 1.0);
-        let y_bounds = (0.0, 2.0);
-        let z_bounds = (0.0, 3.0);
+        let x_bounds = (0.0, 10.0);
+        let y_bounds = (0.0, 20.0);
+        let z_bounds = (0.0, 30.0);
 
-        let num_particles = 10_000;
+        let num_particles = 100_000;
 
         let particles = Particles::new(num_particles, x_bounds, y_bounds, z_bounds);
 
