@@ -1,6 +1,6 @@
 use nalgebra::Vector3;
 
-struct Anchor {
+pub struct Anchor {
     position: Vector3<f32>,
 }
 
