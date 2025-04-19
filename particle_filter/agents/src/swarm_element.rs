@@ -1,5 +1,8 @@
-use crate::particle_filter::ParticleFilter;
+use crate::{measurments::Measurments, particle_filter::ParticleFilter};
+
 use nalgebra::Vector3;
+use rand::rng;
+use rand_distr::{Distribution, Normal};
 use rayon::prelude::*;
 
 pub struct SwarmElement {
@@ -28,6 +31,18 @@ impl SwarmElement {
 
     pub fn move_position(&mut self, velocity: Vector3<f32>, time_step: f32) {
         self.true_position += velocity * time_step;
+    }
+}
+
+impl Measurments for SwarmElement {
+    fn time_of_arival_mesurment(
+        &self,
+        swarm_element: &SwarmElement,
+        measurement_std_deviation: f32,
+    ) -> Result<f32, rand_distr::NormalError> {
+        let normal_dist = Normal::new(0.0, measurement_std_deviation)?;
+        let diff = self.true_position - swarm_element.true_position;
+        Ok(diff.norm() + normal_dist.sample(&mut rng()))
     }
 }
 
@@ -113,5 +128,54 @@ mod tests {
 
         swarm_element.move_position(velocity, time_step);
         assert_eq!(swarm_element.true_position, Vector3::new(0.6, 0.6, 0.5));
+    }
+
+    #[test]
+    fn test_swarm_element_toa() {
+        let measurement_std_deviation = 0.1;
+
+        let num_particles = 10;
+        let enclosure =
+            BoundingBox::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(5.0, 5.0, 5.0)).unwrap();
+
+        let sw1_true_position = Vector3::new(3.3, 2.2, 1.1);
+        let particle_filter = ParticleFilter::new(&enclosure, num_particles);
+        let sw1 = SwarmElement::new(sw1_true_position, particle_filter);
+
+        let sw2_true_position = Vector3::new(1.1, 4.2, 2.1);
+        let particle_filter = ParticleFilter::new(&enclosure, num_particles);
+        let sw2 = SwarmElement::new(sw2_true_position, particle_filter);
+
+        let num_samples = 100_000;
+        let empirical_sum: f32 = (0..num_samples)
+            .into_par_iter()
+            .map(|_| {
+                sw1.time_of_arival_mesurment(&sw2, measurement_std_deviation)
+                    .unwrap()
+            })
+            .sum();
+
+        let empirical_mean = empirical_sum / num_samples as f32;
+
+        let empirical_variance: f32 = (0..num_samples)
+            .into_par_iter()
+            .map(|_| {
+                let x = sw1
+                    .time_of_arival_mesurment(&sw2, measurement_std_deviation)
+                    .unwrap();
+                (x - empirical_mean).powi(2)
+            })
+            .sum::<f32>()
+            / num_samples as f32;
+        let expected_variance = measurement_std_deviation.powi(2);
+
+        let mean_tolerance = 0.01;
+        assert!((empirical_mean - (sw1.true_position - sw2.true_position).norm()) < mean_tolerance);
+
+        let variance_tolerance = 0.01;
+        assert!(expected_variance - empirical_variance < variance_tolerance);
+
+        let is_nosiy = 0.0;
+        assert!(empirical_variance > is_nosiy);
     }
 }
