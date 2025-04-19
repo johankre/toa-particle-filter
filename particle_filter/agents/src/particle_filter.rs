@@ -3,48 +3,62 @@ use rand::distr::Uniform;
 use rand::Rng;
 use rayon::prelude::*;
 
+pub trait Enclosure {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Vector3<f32>;
+}
+
+pub struct BoundingBox {
+    pub dist_x: Uniform<f32>,
+    pub dist_y: Uniform<f32>,
+    pub dist_z: Uniform<f32>,
+}
+
+impl BoundingBox {
+    pub fn new(min: Vector3<f32>, max: Vector3<f32>) -> Result<Self, rand::distr::uniform::Error> {
+        Ok(Self {
+            dist_x: Uniform::new(min.x, max.x)?,
+            dist_y: Uniform::new(min.y, max.y)?,
+            dist_z: Uniform::new(min.z, max.z)?,
+        })
+    }
+}
+
+impl Enclosure for BoundingBox {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Vector3<f32> {
+        let x = rng.sample(self.dist_x);
+        let y = rng.sample(self.dist_y);
+        let z = rng.sample(self.dist_z);
+
+        Vector3::new(x, y, z)
+    }
+}
+
 pub struct Particle {
     pub position: Vector3<f32>,
     pub weight: f64,
 }
 
-pub struct Particles {
+pub struct ParticleFilter {
     pub particles: Vec<Particle>,
 }
 
 impl Particle {
-    pub(super) fn new(x: f32, y: f32, z: f32, weight: f64) -> Self {
-        Self {
-            position: Vector3::new(x, y, z),
-            weight,
-        }
+    pub fn new(position: Vector3<f32>, weight: f64) -> Self {
+        Self { position, weight }
     }
 }
 
-impl Particles {
-    pub(crate) fn new(
-        num_particles: usize,
-        x_bounds: (f32, f32),
-        y_bounds: (f32, f32),
-        z_bounds: (f32, f32),
-    ) -> Self {
+impl ParticleFilter {
+    pub fn new<E: Enclosure>(enclosure: &E, num_particles: usize) -> Self {
         let mut rng = rand::rng();
-        let x_uni = Uniform::new(x_bounds.0, x_bounds.1).unwrap();
-        let y_uni = Uniform::new(y_bounds.0, y_bounds.1).unwrap();
-        let z_uni = Uniform::new(z_bounds.0, z_bounds.1).unwrap();
-
         let particles: Vec<Particle> = (0..num_particles)
             .map(|_| {
-                Particle::new(
-                    rng.sample(x_uni),
-                    rng.sample(y_uni),
-                    rng.sample(z_uni),
-                    1.0 / (num_particles as f64),
-                )
+                let pos = enclosure.sample(&mut rng);
+                Particle::new(pos, 1.0 / (num_particles as f64))
             })
             .collect();
 
-        Particles { particles }
+        ParticleFilter { particles }
     }
     pub fn normalize_weights(&mut self) {
         let sum: f64 = self.particles.par_iter().map(|p| p.weight).sum();
@@ -64,7 +78,10 @@ mod tests {
 
     #[test]
     fn test_particle_new() {
-        let particle = Particle::new(1.0, 2.0, 3.0, 0.1);
+        let position = Vector3::new(1.0, 2.0, 3.0);
+
+        let particle = Particle::new(position, 0.1);
+
         assert_eq!(particle.position, Vector3::new(1.0, 2.0, 3.0));
         assert_eq!(particle.weight, 0.1);
     }
@@ -75,11 +92,16 @@ mod tests {
         let y_bounds = (0.0, 1.0);
         let z_bounds = (0.0, 1.0);
 
+        let min = Vector3::new(x_bounds.0, y_bounds.0, z_bounds.0);
+        let max = Vector3::new(x_bounds.1, y_bounds.1, z_bounds.1);
+
+        let bounding_box = BoundingBox::new(min, max).unwrap();
+
         let num_particles = 100;
 
-        let particles = Particles::new(num_particles, x_bounds, y_bounds, z_bounds);
+        let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
 
-        for particle in particles.particles.iter() {
+        for particle in particle_filter.particles.iter() {
             assert!(x_bounds.0 <= particle.position.x);
             assert!(x_bounds.1 >= particle.position.x);
 
@@ -97,9 +119,14 @@ mod tests {
         let y_bounds = (0.0, 20.0);
         let z_bounds = (0.0, 30.0);
 
+        let min = Vector3::new(x_bounds.0, y_bounds.0, z_bounds.0);
+        let max = Vector3::new(x_bounds.1, y_bounds.1, z_bounds.1);
+
+        let bounding_box = BoundingBox::new(min, max).unwrap();
+
         let num_particles = 100_000;
 
-        let particles = Particles::new(num_particles, x_bounds, y_bounds, z_bounds);
+        let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
 
         let x_mean = (x_bounds.1 - x_bounds.0) / 2.0;
         let y_mean = (y_bounds.1 - y_bounds.0) / 2.0;
@@ -109,7 +136,7 @@ mod tests {
         let mut y_sum = 0.0;
         let mut z_sum = 0.0;
 
-        particles.particles.iter().for_each(|p| {
+        particle_filter.particles.iter().for_each(|p| {
             x_sum += p.position.x;
             y_sum += p.position.y;
             z_sum += p.position.z;
@@ -132,17 +159,22 @@ mod tests {
         let y_bounds = (0.0, 1.0);
         let z_bounds = (0.0, 1.0);
 
+        let min = Vector3::new(x_bounds.0, y_bounds.0, z_bounds.0);
+        let max = Vector3::new(x_bounds.1, y_bounds.1, z_bounds.1);
+
+        let bounding_box = BoundingBox::new(min, max).unwrap();
+
         let num_particles = 4;
 
-        let mut particles = Particles::new(num_particles, x_bounds, y_bounds, z_bounds);
+        let mut particle_filter = ParticleFilter::new(&bounding_box, num_particles);
 
-        for i in 0..particles.particles.len() {
-            particles.particles[i].weight = 1.0 + i as f64;
+        for i in 0..particle_filter.particles.len() {
+            particle_filter.particles[i].weight = 1.0 + i as f64;
         }
 
-        particles.normalize_weights();
+        particle_filter.normalize_weights();
 
-        let particle_weight_sum: f64 = particles.particles.iter().map(|p| p.weight).sum();
+        let particle_weight_sum: f64 = particle_filter.particles.iter().map(|p| p.weight).sum();
         assert!(particle_weight_sum == 1.0);
     }
 }
