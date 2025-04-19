@@ -6,4 +6,5 @@ edition = "2021"
 [dependencies]
 nalgebra = "0.33.2"
 rand = "0.9.0"
+rand_distr = "0.5.1"
 rayon = "1.10.0"

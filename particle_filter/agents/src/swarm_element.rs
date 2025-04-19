@@ -3,7 +3,7 @@ use nalgebra::Vector3;
 use rayon::prelude::*;
 
 pub struct SwarmElement {
-    true_position: Vector3<f32>,
+    pub true_position: Vector3<f32>,
     est_position: Vector3<f32>,
     particle_filter: ParticleFilter,
 }
