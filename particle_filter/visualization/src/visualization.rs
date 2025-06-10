@@ -56,7 +56,7 @@ impl RerunVisualization {
         // Temp hardcoding, at some point this will be handeld by a config parser
         let particle_size = 2.0;
         let swarm_size = 6.0;
-        let agents_size = 6.0;
+        let anchors_size = 6.0;
 
         for swarm in &simulation.swarm_elements {
             let particle_positions: Vec<[f32; 3]> = swarm
@@ -97,6 +97,26 @@ impl RerunVisualization {
                 ))
                 .expect("logging thread has died unexpectedly");
         }
+
+        let anchors_position: Vec<[f32; 3]> = simulation
+            .anchors
+            .iter()
+            .map(|p| {
+                let v: Vector3<f32> = p.position;
+                [v.x, v.y, v.z]
+            })
+            .collect();
+
+        let entity_name = String::from("anchors");
+        self.tx
+            .as_ref()
+            .unwrap()
+            .send(Command::LogPoints(
+                entity_name,
+                anchors_position,
+                anchors_size,
+            ))
+            .expect("logging thread has died unexpectedly");
 
         Ok(())
     }
