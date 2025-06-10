@@ -5,8 +5,10 @@ use nalgebra::Vector3;
 use rand::rng;
 use rand_distr::{Distribution, Normal};
 
+
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Anchor {
-    position: Vector3<f32>,
+    pub position: Vector3<f32>,
 }
 
 impl Anchor {

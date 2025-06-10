@@ -5,15 +5,19 @@ use rand::rng;
 use rand_distr::{Distribution, Normal};
 use rayon::prelude::*;
 
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct SwarmElement {
+    pub name: String,
+
     pub true_position: Vector3<f32>,
-    est_position: Vector3<f32>,
-    particle_filter: ParticleFilter,
+    pub est_position: Vector3<f32>,
+    pub particle_filter: ParticleFilter,
 }
 
 impl SwarmElement {
-    pub fn new(true_position: Vector3<f32>, particle_filter: ParticleFilter) -> Self {
+    pub fn new(name: String,true_position: Vector3<f32>, particle_filter: ParticleFilter) -> Self {
         Self {
+            name,
             true_position,
             est_position: Vector3::zeros(),
             particle_filter,
@@ -54,6 +58,7 @@ mod tests {
 
     #[test]
     fn test_new_swarm_element() {
+        let swarm_name = String::from("swarm_element_1");
         let true_position = Vector3::new(0.5, 0.5, 0.5);
         let num_particles = 10;
         let x_bounds = (0.0, 1.0);
@@ -66,8 +71,9 @@ mod tests {
         let bounding_box = BoundingBox::new(min, max).unwrap();
         let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
 
-        let swarm_element = SwarmElement::new(true_position, particle_filter);
+        let swarm_element = SwarmElement::new(swarm_name.clone(), true_position, particle_filter);
 
+        assert_eq!(swarm_element.name, swarm_name);
         assert_eq!(swarm_element.true_position, true_position);
         assert_eq!(swarm_element.est_position, Vector3::zeros());
         assert_eq!(swarm_element.particle_filter.particles.len(), 10);
@@ -80,6 +86,8 @@ mod tests {
 
     #[test]
     fn test_update_est_position() {
+        let swarm_name = String::from("swarm_element_1");
+
         let true_position = Vector3::new(0.5, 0.5, 0.5);
         let num_particles = 100_000;
         let x_bounds = (0.0, 1.0);
@@ -92,7 +100,7 @@ mod tests {
         let bounding_box = BoundingBox::new(min, max).unwrap();
         let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
 
-        let mut swarm_element = SwarmElement::new(true_position, particle_filter);
+        let mut swarm_element = SwarmElement::new(swarm_name, true_position, particle_filter);
         swarm_element.update_est_position();
 
         let tolerance = 0.01;
@@ -110,6 +118,8 @@ mod tests {
 
     #[test]
     fn test_move_swarm_element() {
+        let swarm_name = String::from("swarm_element_1");
+
         let true_position = Vector3::new(0.5, 0.5, 0.5);
         let velocity = Vector3::new(0.1, 0.1, 0.0);
         let time_step = 1.0;
@@ -124,7 +134,7 @@ mod tests {
         let bounding_box = BoundingBox::new(min, max).unwrap();
         let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
 
-        let mut swarm_element = SwarmElement::new(true_position, particle_filter);
+        let mut swarm_element = SwarmElement::new(swarm_name, true_position, particle_filter);
 
         swarm_element.move_position(velocity, time_step);
         assert_eq!(swarm_element.true_position, Vector3::new(0.6, 0.6, 0.5));
@@ -132,6 +142,9 @@ mod tests {
 
     #[test]
     fn test_swarm_element_toa() {
+        let swarm_name_1 = String::from("swarm_element_1");
+        let swarm_name_2 = String::from("swarm_element_2");
+
         let measurement_std_deviation = 0.1;
 
         let num_particles = 10;
@@ -140,11 +153,11 @@ mod tests {
 
         let sw1_true_position = Vector3::new(3.3, 2.2, 1.1);
         let particle_filter = ParticleFilter::new(&enclosure, num_particles);
-        let sw1 = SwarmElement::new(sw1_true_position, particle_filter);
+        let sw1 = SwarmElement::new(swarm_name_1, sw1_true_position, particle_filter);
 
         let sw2_true_position = Vector3::new(1.1, 4.2, 2.1);
         let particle_filter = ParticleFilter::new(&enclosure, num_particles);
-        let sw2 = SwarmElement::new(sw2_true_position, particle_filter);
+        let sw2 = SwarmElement::new(swarm_name_2, sw2_true_position, particle_filter);
 
         let num_samples = 100_000;
         let empirical_sum: f32 = (0..num_samples)

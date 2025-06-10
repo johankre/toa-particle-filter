@@ -33,11 +33,13 @@ impl Enclosure for BoundingBox {
     }
 }
 
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Particle {
     pub position: Vector3<f32>,
     pub weight: f64,
 }
 
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct ParticleFilter {
     pub particles: Vec<Particle>,
 }
