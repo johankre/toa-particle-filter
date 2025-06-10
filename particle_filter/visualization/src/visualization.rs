@@ -96,6 +96,23 @@ impl RerunVisualization {
                     swarm_size,
                 ))
                 .expect("logging thread has died unexpectedly");
+
+            let swarm_est_position: Vec<[f32; 3]> = vec![[
+                swarm.est_position.x,
+                swarm.est_position.y,
+                swarm.est_position.z,
+            ]];
+
+            let entity_name = swarm.name.clone() + "/est_position";
+            self.tx
+                .as_ref()
+                .unwrap()
+                .send(Command::LogPoints(
+                    entity_name,
+                    swarm_est_position,
+                    swarm_size,
+                ))
+                .expect("logging thread has died unexpectedly");
         }
 
         let anchors_position: Vec<[f32; 3]> = simulation
