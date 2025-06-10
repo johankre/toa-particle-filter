@@ -1,0 +1,9 @@
+[package]
+name = "visualization"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+simulation = { path = "../simulation" }
+nalgebra = "0.33.2"
+rerun = "0.22.1"

@@ -37,7 +37,27 @@ jobs:
         cd particle_filter/agents
         cargo fmt -- --check
 
+    - name: build agents
+      run: |
+        cd particle_filter/agents
+        cargo build --verbose
+
     - name: unit test agents
       run: |
         cd particle_filter/agents
+        cargo test
+
+    - name: format visualization
+      run: |
+        cd particle_filter/visualization
+        cargo fmt -- --check
+
+    - name: build visualization
+      run: |
+        cd particle_filter/visualization
+        cargo build --verbose
+
+    - name: unit test visualization
+      run: |
+        cd particle_filter/visualization
         cargo test
