@@ -8,9 +8,9 @@ pub trait Enclosure {
 }
 
 pub struct BoundingBox {
-    pub dist_x: Uniform<f32>,
-    pub dist_y: Uniform<f32>,
-    pub dist_z: Uniform<f32>,
+    dist_x: Uniform<f32>,
+    dist_y: Uniform<f32>,
+    dist_z: Uniform<f32>,
 }
 
 impl BoundingBox {
@@ -28,6 +28,38 @@ impl Enclosure for BoundingBox {
         let x = rng.sample(self.dist_x);
         let y = rng.sample(self.dist_y);
         let z = rng.sample(self.dist_z);
+
+        Vector3::new(x, y, z)
+    }
+}
+
+pub struct Spher {
+    origo: Vector3<f32>,
+    dist_r: Uniform<f32>,
+    dist_polar: Uniform<f32>,
+    dist_azimuth: Uniform<f32>,
+}
+
+impl Spher {
+    fn new(r: f32, origo: Vector3<f32>) -> Result<Self, rand::distr::uniform::Error> {
+        Ok(Self {
+            origo,
+            dist_r: Uniform::new(0.0, r)?,
+            dist_polar: Uniform::new(-std::f32::consts::PI / 2.0, std::f32::consts::PI / 2.0)?,
+            dist_azimuth: Uniform::new(0.0, 2.0 * std::f32::consts::PI)?,
+        })
+    }
+}
+
+impl Enclosure for Spher {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Vector3<f32> {
+        let r = rng.sample(self.dist_r);
+        let polar = rng.sample(self.dist_polar);
+        let azimuthal = rng.sample(self.dist_azimuth);
+
+        let x = self.origo.x + r * polar.sin() * azimuthal.cos();
+        let y = self.origo.y + r * polar.sin() * azimuthal.sin();
+        let z = self.origo.z + r * polar.sin();
 
         Vector3::new(x, y, z)
     }
@@ -114,7 +146,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mean_uniform_particle_distribution() {
+    fn test_mean_uniform_particle_distribution_bounding_box() {
         let x_bounds = (0.0, 10.0);
         let y_bounds = (0.0, 20.0);
         let z_bounds = (0.0, 30.0);
@@ -151,6 +183,41 @@ mod tests {
         assert!((x_mean - x_empirical_mean).abs() <= tolerance);
         assert!((y_mean - y_empirical_mean).abs() <= tolerance);
         assert!((z_mean - z_empirical_mean).abs() <= tolerance);
+    }
+
+    #[test]
+    fn test_mean_uniform_particle_distribution_spher() {
+        let r = 4.0;
+
+        let x_origo = 1.0;
+        let y_origo = 2.0;
+        let z_origo = 3.0;
+        let origo: Vector3<f32> = Vector3::new(x_origo, y_origo, z_origo);
+
+        let spher = Spher::new(r, origo).unwrap();
+        let num_particles = 100_000;
+
+        let particle_filter = ParticleFilter::new(&spher, num_particles);
+
+        let mut x_sum = 0.0;
+        let mut y_sum = 0.0;
+        let mut z_sum = 0.0;
+
+        particle_filter.particles.iter().for_each(|p| {
+            x_sum += p.position.x;
+            y_sum += p.position.y;
+            z_sum += p.position.z;
+        });
+
+        let x_empirical_mean = x_sum / (num_particles as f32);
+        let y_empirical_mean = y_sum / (num_particles as f32);
+        let z_empirical_mean = z_sum / (num_particles as f32);
+
+        let tolerance = 0.1;
+
+        assert!((spher.origo.x - x_empirical_mean).abs() <= tolerance);
+        assert!((spher.origo.y - y_empirical_mean).abs() <= tolerance);
+        assert!((spher.origo.z - z_empirical_mean).abs() <= tolerance);
     }
 
     #[test]
