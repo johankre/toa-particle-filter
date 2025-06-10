@@ -1,1 +1,1 @@
-pub mod visulization;
+pub mod visualization;

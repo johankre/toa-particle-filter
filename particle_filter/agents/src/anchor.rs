@@ -5,8 +5,9 @@ use nalgebra::Vector3;
 use rand::rng;
 use rand_distr::{Distribution, Normal};
 
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Anchor {
-    position: Vector3<f32>,
+    pub position: Vector3<f32>,
 }
 
 impl Anchor {
@@ -63,7 +64,7 @@ mod tests {
         let enclosure =
             BoundingBox::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(5.0, 5.0, 5.0)).unwrap();
         let particle_filter = ParticleFilter::new(&enclosure, num_particles);
-        let swarm_element = SwarmElement::new(true_position, particle_filter);
+        let swarm_element = SwarmElement::new("test_1".to_string(), true_position, particle_filter);
 
         let num_samples = 100_000;
         let empirical_sum: f32 = (0..num_samples)
