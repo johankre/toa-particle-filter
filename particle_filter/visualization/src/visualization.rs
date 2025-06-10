@@ -9,7 +9,7 @@ use simulation::simulation::Simulation;
 
 enum Command {
     SetFrame(i64),
-    LogPoints(String, Vec<[f32; 3]>),
+    LogPoints(String, Vec<[f32; 3]>, f32),
 }
 
 pub struct RerunVisualization {
@@ -27,9 +27,12 @@ impl RerunVisualization {
             for cmd in rx {
                 match cmd {
                     Command::SetFrame(frame) => rec.set_time_sequence("frame", frame),
-                    Command::LogPoints(path, positions) => rec
-                        .log(path, &Points3D::new(positions))
-                        .expect("Rerun: unable to log points"),
+                    Command::LogPoints(path, positions, radius) => {
+                        let radii =
+                            vec![rerun::components::Radius::new_ui_points(radius); positions.len()];
+                        rec.log(path, &Points3D::new(positions).with_radii(radii))
+                            .expect("Rerun: unable to log points");
+                    }
                 }
             }
         });
@@ -50,8 +53,13 @@ impl RerunVisualization {
             .send(Command::SetFrame(self.current_frame))
             .expect("logging thread has died unexpectedly");
 
+        // Temp hardcoding, at some point this will be handeld by a config parser
+        let particle_size = 2.0;
+        let swarm_size = 6.0;
+        let agents_size = 6.0;
+
         for swarm in &simulation.swarm_elements {
-            let positions: Vec<[f32; 3]> = swarm
+            let particle_positions: Vec<[f32; 3]> = swarm
                 .particle_filter
                 .particles
                 .iter()
@@ -65,7 +73,28 @@ impl RerunVisualization {
             self.tx
                 .as_ref()
                 .unwrap()
-                .send(Command::LogPoints(entity_name, positions))
+                .send(Command::LogPoints(
+                    entity_name,
+                    particle_positions,
+                    particle_size,
+                ))
+                .expect("logging thread has died unexpectedly");
+
+            let swarm_true_position: Vec<[f32; 3]> = vec![[
+                swarm.true_position.x,
+                swarm.true_position.y,
+                swarm.true_position.z,
+            ]];
+
+            let entity_name = swarm.name.clone() + "/true_position";
+            self.tx
+                .as_ref()
+                .unwrap()
+                .send(Command::LogPoints(
+                    entity_name,
+                    swarm_true_position,
+                    swarm_size,
+                ))
                 .expect("logging thread has died unexpectedly");
         }
 
