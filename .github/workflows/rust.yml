@@ -1,63 +1,46 @@
-name: Rust
+name: Rust CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ main ]
 
 env:
   CARGO_TERM_COLOR: always
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        crate-dir: [ "particle_filter", "particle_filter/agents", "particle_filter/simulation", "particle_filter/visualization" ]
+
+    defaults:
+      run:
+        working-directory: ${{ matrix.crate-dir }}
+
     steps:
-    - name: checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: format particle filter
-      run: |
-        cd particle_filter
-        cargo fmt -- --check
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
 
-    - name: build particle filter
-      run: |
-        cd particle_filter
-        cargo build --verbose
+      - name: Verify formatting
+        run: cargo fmt -- --check
 
-    - name: unit test particle filter
-      run: |
-        cd particle_filter
-        cargo test
+      - name: Build
+        run: cargo build --verbose
 
-    - name: format agents
-      run: |
-        cd particle_filter/agents
-        cargo fmt -- --check
-
-    - name: build agents
-      run: |
-        cd particle_filter/agents
-        cargo build --verbose
-
-    - name: unit test agents
-      run: |
-        cd particle_filter/agents
-        cargo test
-
-    - name: format visualization
-      run: |
-        cd particle_filter/visualization
-        cargo fmt -- --check
-
-    - name: build visualization
-      run: |
-        cd particle_filter/visualization
-        cargo build --verbose
-
-    - name: unit test visualization
-      run: |
-        cd particle_filter/visualization
-        cargo test
+      - name: Run tests
+        run: cargo test -- --nocapture
