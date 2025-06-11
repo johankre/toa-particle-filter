@@ -42,11 +42,11 @@ pub struct Spher {
 }
 
 impl Spher {
-    fn new(r: f32, origo: Vector3<f32>) -> Result<Self, rand::distr::uniform::Error> {
+    pub fn new(r: f32, origo: Vector3<f32>) -> Result<Self, rand::distr::uniform::Error> {
         Ok(Self {
             origo,
             dist_r: Uniform::new(0.0, r)?,
-            dist_polar: Uniform::new(-std::f32::consts::PI / 2.0, std::f32::consts::PI / 2.0)?,
+            dist_polar: Uniform::new(0.0, std::f32::consts::PI)?,
             dist_azimuth: Uniform::new(0.0, 2.0 * std::f32::consts::PI)?,
         })
     }
@@ -60,7 +60,7 @@ impl Enclosure for Spher {
 
         let x = self.origo.x + r * polar.sin() * azimuthal.cos();
         let y = self.origo.y + r * polar.sin() * azimuthal.sin();
-        let z = self.origo.z + r * polar.sin();
+        let z = self.origo.z + r * polar.cos();
 
         Vector3::new(x, y, z)
     }
