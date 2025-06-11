@@ -21,6 +21,15 @@ impl Simulation {
     pub fn builder() -> SimulationBuilder {
         SimulationBuilder::default()
     }
+
+    pub fn run(&mut self, time_steps: usize) {
+        for time_step in 0..time_steps {
+            // Move particles
+            self.swarm_elements
+                .iter()
+                .for_each(|se| se.particle_filter.update_position(se, time_step));
+        }
+    }
 }
 
 impl SimulationBuilder {
