@@ -28,6 +28,8 @@ impl Simulation {
                 se.move_position();
                 se.particle_filter
                     .update_position(se.velocity, se.transmission_noise);
+
+                se.update_est_position();
             }
 
             if let Some(viz) = &mut self.visualizer {
