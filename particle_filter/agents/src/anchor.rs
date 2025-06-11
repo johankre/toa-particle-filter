@@ -59,12 +59,22 @@ mod tests {
         let anchor_z = 1.0;
         let anchor = Anchor::new(anchor_x, anchor_y, anchor_z);
 
+        let swarm_element_name = String::from("test_1");
         let true_position = Vector3::new(3.3, 2.2, 1.1);
+        let velocity = Vector3::new(0.1, 0.1, 0.1);
         let num_particles = 10;
         let enclosure =
             BoundingBox::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(5.0, 5.0, 5.0)).unwrap();
         let particle_filter = ParticleFilter::new(&enclosure, num_particles);
-        let swarm_element = SwarmElement::new("test_1".to_string(), true_position, particle_filter);
+        let transmission_noise = 0.1;
+
+        let swarm_element = SwarmElement::new(
+            swarm_element_name,
+            true_position,
+            particle_filter,
+            velocity,
+            transmission_noise,
+        );
 
         let num_samples = 100_000;
         let empirical_sum: f32 = (0..num_samples)

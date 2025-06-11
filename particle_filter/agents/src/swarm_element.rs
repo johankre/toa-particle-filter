@@ -5,22 +5,35 @@ use rand::rng;
 use rand_distr::{Distribution, Normal};
 use rayon::prelude::*;
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SwarmElement {
     pub name: String,
 
     pub true_position: Vector3<f32>,
     pub est_position: Vector3<f32>,
     pub particle_filter: ParticleFilter,
+    pub velocity: Vector3<f32>,
+
+    pub transmission_noise: Normal<f32>,
 }
 
 impl SwarmElement {
-    pub fn new(name: String, true_position: Vector3<f32>, particle_filter: ParticleFilter) -> Self {
+    pub fn new(
+        name: String,
+        true_position: Vector3<f32>,
+        particle_filter: ParticleFilter,
+        velocity: Vector3<f32>,
+        sd_transmition_noise: f32,
+    ) -> Self {
+        let transmission_noise = Normal::new(0.0, sd_transmition_noise)
+            .expect("SwarmElement: transmition_noise distribution failed");
         Self {
             name,
             true_position,
             est_position: Vector3::zeros(),
             particle_filter,
+            velocity,
+            transmission_noise,
         }
     }
 
@@ -33,8 +46,28 @@ impl SwarmElement {
             .sum();
     }
 
-    pub fn move_position(&mut self, velocity: Vector3<f32>, time_step: f32) {
-        self.true_position += velocity * time_step;
+    pub fn move_position(&mut self) {
+        let noise: Vector3<f32> = Vector3::new(
+            self.transmission_noise.sample(&mut rng()),
+            self.transmission_noise.sample(&mut rng()),
+            self.transmission_noise.sample(&mut rng()),
+        );
+        self.true_position += self.velocity + noise;
+    }
+}
+
+impl Default for SwarmElement {
+    fn default() -> Self {
+        let noise = Normal::new(0.0, 1.0).expect("transmission_noise σ must be > 0");
+
+        SwarmElement {
+            name: String::new(),
+            true_position: Vector3::zeros(),
+            est_position: Vector3::zeros(),
+            particle_filter: ParticleFilter::default(),
+            velocity: Vector3::zeros(),
+            transmission_noise: noise,
+        }
     }
 }
 
@@ -60,6 +93,7 @@ mod tests {
     fn test_new_swarm_element() {
         let swarm_name = String::from("swarm_element_1");
         let true_position = Vector3::new(0.5, 0.5, 0.5);
+        let velocity = Vector3::new(0.1, 0.1, 0.1);
         let num_particles = 10;
         let x_bounds = (0.0, 1.0);
         let y_bounds = (0.0, 1.0);
@@ -71,11 +105,20 @@ mod tests {
         let bounding_box = BoundingBox::new(min, max).unwrap();
         let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
 
-        let swarm_element = SwarmElement::new(swarm_name.clone(), true_position, particle_filter);
+        let transmission_noise = 0.1;
+
+        let swarm_element = SwarmElement::new(
+            swarm_name.clone(),
+            true_position,
+            particle_filter,
+            velocity,
+            transmission_noise,
+        );
 
         assert_eq!(swarm_element.name, swarm_name);
         assert_eq!(swarm_element.true_position, true_position);
         assert_eq!(swarm_element.est_position, Vector3::zeros());
+        assert_eq!(swarm_element.velocity, velocity);
         assert_eq!(swarm_element.particle_filter.particles.len(), 10);
         swarm_element
             .particle_filter
@@ -89,6 +132,7 @@ mod tests {
         let swarm_name = String::from("swarm_element_1");
 
         let true_position = Vector3::new(0.5, 0.5, 0.5);
+        let velocity = Vector3::new(0.1, 0.1, 0.1);
         let num_particles = 100_000;
         let x_bounds = (0.0, 1.0);
         let y_bounds = (0.0, 2.0);
@@ -100,7 +144,15 @@ mod tests {
         let bounding_box = BoundingBox::new(min, max).unwrap();
         let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
 
-        let mut swarm_element = SwarmElement::new(swarm_name, true_position, particle_filter);
+        let transmission_noise = 0.1;
+
+        let mut swarm_element = SwarmElement::new(
+            swarm_name,
+            true_position,
+            particle_filter,
+            velocity,
+            transmission_noise,
+        );
         swarm_element.update_est_position();
 
         let tolerance = 0.01;
@@ -117,49 +169,40 @@ mod tests {
     }
 
     #[test]
-    fn test_move_swarm_element() {
-        let swarm_name = String::from("swarm_element_1");
-
-        let true_position = Vector3::new(0.5, 0.5, 0.5);
-        let velocity = Vector3::new(0.1, 0.1, 0.0);
-        let time_step = 1.0;
-        let num_particles = 10_000;
-        let x_bounds = (0.0, 1.0);
-        let y_bounds = (0.0, 2.0);
-        let z_bounds = (0.0, 3.0);
-
-        let min = Vector3::new(x_bounds.0, y_bounds.0, z_bounds.0);
-        let max = Vector3::new(x_bounds.1, y_bounds.1, z_bounds.1);
-
-        let bounding_box = BoundingBox::new(min, max).unwrap();
-        let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
-
-        let mut swarm_element = SwarmElement::new(swarm_name, true_position, particle_filter);
-
-        swarm_element.move_position(velocity, time_step);
-        assert_eq!(swarm_element.true_position, Vector3::new(0.6, 0.6, 0.5));
-    }
-
-    #[test]
     fn test_swarm_element_toa() {
         let swarm_name_1 = String::from("swarm_element_1");
         let swarm_name_2 = String::from("swarm_element_2");
-
-        let measurement_std_deviation = 0.1;
 
         let num_particles = 10;
         let enclosure =
             BoundingBox::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(5.0, 5.0, 5.0)).unwrap();
 
         let sw1_true_position = Vector3::new(3.3, 2.2, 1.1);
+        let velocity_1 = Vector3::new(0.1, 0.1, 0.1);
         let particle_filter = ParticleFilter::new(&enclosure, num_particles);
-        let sw1 = SwarmElement::new(swarm_name_1, sw1_true_position, particle_filter);
+        let transmission_noise_1 = 0.1;
+        let sw1 = SwarmElement::new(
+            swarm_name_1,
+            sw1_true_position,
+            particle_filter,
+            velocity_1,
+            transmission_noise_1,
+        );
 
         let sw2_true_position = Vector3::new(1.1, 4.2, 2.1);
+        let velocity_2 = Vector3::new(0.2, 0.2, 0.2);
         let particle_filter = ParticleFilter::new(&enclosure, num_particles);
-        let sw2 = SwarmElement::new(swarm_name_2, sw2_true_position, particle_filter);
+        let transmission_noise_2 = 0.1;
+        let sw2 = SwarmElement::new(
+            swarm_name_2,
+            sw2_true_position,
+            particle_filter,
+            velocity_2,
+            transmission_noise_2,
+        );
 
         let num_samples = 100_000;
+        let measurement_std_deviation = 0.1;
         let empirical_sum: f32 = (0..num_samples)
             .into_par_iter()
             .map(|_| {
