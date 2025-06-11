@@ -11,6 +11,8 @@ fn main() {
     let swarm_name = String::from("swarm_element_1");
 
     let true_position = Vector3::new(0.5, 0.5, 0.5);
+    let velocity = Vector3::new(0.1, 0.1, 0.1);
+    let sd_transmition_noise = 0.1;
     let num_particles = 100_000;
     let x_bounds = (0.0, 1.0);
     let y_bounds = (0.0, 2.0);
@@ -22,7 +24,7 @@ fn main() {
     let bounding_box = BoundingBox::new(min, max).unwrap();
     let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
 
-    let swarm_element = SwarmElement::new(swarm_name, true_position, particle_filter);
+    let swarm_element = SwarmElement::new(swarm_name, true_position, particle_filter, velocity, sd_transmition_noise);
     let anchor = Anchor::default();
 
     let sim = SimulationBuilder::default()

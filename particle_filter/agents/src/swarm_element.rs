@@ -14,7 +14,7 @@ pub struct SwarmElement {
     pub particle_filter: ParticleFilter,
     pub velocity: Vector3<f32>,
 
-    transmission_noise: Normal<f32>,
+    pub transmission_noise: Normal<f32>,
 }
 
 impl SwarmElement {

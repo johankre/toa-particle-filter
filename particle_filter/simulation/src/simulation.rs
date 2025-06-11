@@ -23,11 +23,12 @@ impl Simulation {
     }
 
     pub fn run(&mut self, time_steps: usize) {
-        for time_step in 0..time_steps {
-            // Move particles
-            self.swarm_elements
-                .iter()
-                .for_each(|se| se.particle_filter.update_position(se, time_step));
+        for _time_step in 0..time_steps {
+            for se in &mut self.swarm_elements {
+                se.move_position();
+                se.particle_filter
+                    .update_position(se.velocity, se.transmission_noise);
+            }
         }
     }
 }
