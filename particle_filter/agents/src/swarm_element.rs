@@ -75,11 +75,10 @@ impl Measurments for SwarmElement {
     fn time_of_arival_mesurment(
         &self,
         swarm_element: &SwarmElement,
-        measurement_std_deviation: f32,
-    ) -> Result<f32, rand_distr::NormalError> {
-        let normal_dist = Normal::new(0.0, measurement_std_deviation)?;
+        raning_noise: &Normal<f32>,
+    ) -> f32 {
         let diff = self.true_position - swarm_element.true_position;
-        Ok(diff.norm() + normal_dist.sample(&mut rng()))
+        diff.norm() + raning_noise.sample(&mut rng())
     }
 }
 
@@ -201,14 +200,13 @@ mod tests {
             transmission_noise_2,
         );
 
-        let num_samples = 100_000;
         let measurement_std_deviation = 0.1;
+        let ranging_noise = Normal::new(0.0, measurement_std_deviation).unwrap();
+
+        let num_samples = 100_000;
         let empirical_sum: f32 = (0..num_samples)
             .into_par_iter()
-            .map(|_| {
-                sw1.time_of_arival_mesurment(&sw2, measurement_std_deviation)
-                    .unwrap()
-            })
+            .map(|_| sw1.time_of_arival_mesurment(&sw2, &ranging_noise))
             .sum();
 
         let empirical_mean = empirical_sum / num_samples as f32;
@@ -216,9 +214,7 @@ mod tests {
         let empirical_variance: f32 = (0..num_samples)
             .into_par_iter()
             .map(|_| {
-                let x = sw1
-                    .time_of_arival_mesurment(&sw2, measurement_std_deviation)
-                    .unwrap();
+                let x = sw1.time_of_arival_mesurment(&sw2, &ranging_noise);
                 (x - empirical_mean).powi(2)
             })
             .sum::<f32>()
