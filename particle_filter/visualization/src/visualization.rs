@@ -1,13 +1,10 @@
-use nalgebra::Vector3;
-use rerun::{Points3D, RecordingStreamError};
+use rerun::Points3D;
 use std::{
     sync::mpsc::{self, SyncSender},
     thread::{self, JoinHandle},
 };
 
-use simulation::simulation::Simulation;
-
-enum Command {
+pub enum Command {
     SetFrame(i64),
     LogPoints(String, Vec<[f32; 3]>, f32),
 }
@@ -15,7 +12,6 @@ enum Command {
 pub struct RerunVisualization {
     tx: Option<SyncSender<Command>>,
     handle: Option<JoinHandle<()>>,
-    current_frame: i64,
 }
 
 impl RerunVisualization {
@@ -40,102 +36,15 @@ impl RerunVisualization {
         Ok(Self {
             tx: Some(tx),
             handle: Some(handle),
-            current_frame: 0,
         })
     }
 
-    pub fn capture_frame(mut self, simulation: &Simulation) -> Result<(), RecordingStreamError> {
-        self.current_frame += 1;
-
+    pub fn log(&mut self, command: Command) {
         self.tx
             .as_ref()
             .unwrap()
-            .send(Command::SetFrame(self.current_frame))
+            .send(command)
             .expect("logging thread has died unexpectedly");
-
-        // Temp hardcoding, at some point this will be handeld by a config parser
-        let particle_size = 2.0;
-        let swarm_size = 6.0;
-        let anchors_size = 6.0;
-
-        for swarm in &simulation.swarm_elements {
-            let particle_positions: Vec<[f32; 3]> = swarm
-                .particle_filter
-                .particles
-                .iter()
-                .map(|p| {
-                    let v: Vector3<f32> = p.position;
-                    [v.x, v.y, v.z]
-                })
-                .collect();
-
-            let entity_name = swarm.name.clone() + "/particle_filter";
-            self.tx
-                .as_ref()
-                .unwrap()
-                .send(Command::LogPoints(
-                    entity_name,
-                    particle_positions,
-                    particle_size,
-                ))
-                .expect("logging thread has died unexpectedly");
-
-            let swarm_true_position: Vec<[f32; 3]> = vec![[
-                swarm.true_position.x,
-                swarm.true_position.y,
-                swarm.true_position.z,
-            ]];
-
-            let entity_name = swarm.name.clone() + "/true_position";
-            self.tx
-                .as_ref()
-                .unwrap()
-                .send(Command::LogPoints(
-                    entity_name,
-                    swarm_true_position,
-                    swarm_size,
-                ))
-                .expect("logging thread has died unexpectedly");
-
-            let swarm_est_position: Vec<[f32; 3]> = vec![[
-                swarm.est_position.x,
-                swarm.est_position.y,
-                swarm.est_position.z,
-            ]];
-
-            let entity_name = swarm.name.clone() + "/est_position";
-            self.tx
-                .as_ref()
-                .unwrap()
-                .send(Command::LogPoints(
-                    entity_name,
-                    swarm_est_position,
-                    swarm_size,
-                ))
-                .expect("logging thread has died unexpectedly");
-        }
-
-        let anchors_position: Vec<[f32; 3]> = simulation
-            .anchors
-            .iter()
-            .map(|p| {
-                let v: Vector3<f32> = p.position;
-                [v.x, v.y, v.z]
-            })
-            .collect();
-
-        let entity_name = String::from("anchors");
-        self.tx
-            .as_ref()
-            .unwrap()
-            .send(Command::LogPoints(
-                entity_name,
-                anchors_position,
-                anchors_size,
-            ))
-            .expect("logging thread has died unexpectedly");
-
-        Ok(())
     }
 }
 
