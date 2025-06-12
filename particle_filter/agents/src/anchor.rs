@@ -1,32 +1,42 @@
-use crate::measurments::Measurments;
 use crate::swarm_element::SwarmElement;
+use crate::Measurements;
 
 use nalgebra::Vector3;
 use rand::rng;
 use rand_distr::{Distribution, Normal};
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Anchor {
     pub position: Vector3<f32>,
+    pub ranging_noise: Normal<f32>,
 }
 
 impl Anchor {
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
+    pub fn new(position: Vector3<f32>, sd_ranging_noise: f32) -> Self {
+        let ranging_noise = Normal::new(0.0, sd_ranging_noise)
+            .expect("SwarmElement: transmition_noise distribution failed");
         Self {
-            position: Vector3::new(x, y, z),
+            position,
+            ranging_noise,
         }
     }
 }
 
-impl Measurments for Anchor {
-    fn time_of_arival_mesurment(
-        &self,
-        swarm_element: &SwarmElement,
-        measurement_std_deviation: f32,
-    ) -> Result<f32, rand_distr::NormalError> {
-        let normal_dist = Normal::new(0.0, measurement_std_deviation)?;
+impl Default for Anchor {
+    fn default() -> Self {
+        let ranging_noise = Normal::new(0.0, 1.0).unwrap();
+        Anchor {
+            position: Vector3::zeros(),
+            ranging_noise,
+        }
+    }
+}
+
+impl Measurements for Anchor {
+    fn ranging(&self, swarm_element: &SwarmElement, std_raning: f32) -> f32 {
+        let noise = Normal::new(0.0, std_raning).unwrap();
         let diff = self.position - swarm_element.true_position;
-        Ok(diff.norm() + normal_dist.sample(&mut rng()))
+        diff.norm() + noise.sample(&mut rng())
     }
 }
 
@@ -39,25 +49,21 @@ mod tests {
 
     #[test]
     fn test_new_anchor() {
-        let x = 2.0;
-        let y = 0.0;
-        let z = 1.0;
+        let position = Vector3::new(2.0, 0.0, 1.0);
+        let sd_ranging_noise = 0.1;
+        let anchor = Anchor::new(position, sd_ranging_noise);
 
-        let anchor = Anchor::new(x, y, z);
-
-        assert_eq!(anchor.position.x, x);
-        assert_eq!(anchor.position.y, y);
-        assert_eq!(anchor.position.z, z);
+        assert_eq!(anchor.position.x, position.x);
+        assert_eq!(anchor.position.y, position.y);
+        assert_eq!(anchor.position.z, position.z);
+        assert_eq!(anchor.ranging_noise.std_dev(), sd_ranging_noise);
     }
 
     #[test]
-    fn test_anchor_toa() {
-        let measurement_std_deviation = 0.1;
-
-        let anchor_x = 2.0;
-        let anchor_y = 0.0;
-        let anchor_z = 1.0;
-        let anchor = Anchor::new(anchor_x, anchor_y, anchor_z);
+    fn test_anchor_ranging() {
+        let position = Vector3::new(2.0, 0.0, 1.0);
+        let sd_ranging_noise = 0.1;
+        let anchor = Anchor::new(position, sd_ranging_noise);
 
         let swarm_element_name = String::from("test_1");
         let true_position = Vector3::new(3.3, 2.2, 1.1);
@@ -66,7 +72,9 @@ mod tests {
         let enclosure =
             BoundingBox::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(5.0, 5.0, 5.0)).unwrap();
         let particle_filter = ParticleFilter::new(&enclosure, num_particles);
+
         let transmission_noise = 0.1;
+        let ranging_noise = 0.1;
 
         let swarm_element = SwarmElement::new(
             swarm_element_name,
@@ -74,16 +82,13 @@ mod tests {
             particle_filter,
             velocity,
             transmission_noise,
+            ranging_noise,
         );
 
         let num_samples = 100_000;
         let empirical_sum: f32 = (0..num_samples)
             .into_par_iter()
-            .map(|_| {
-                anchor
-                    .time_of_arival_mesurment(&swarm_element, measurement_std_deviation)
-                    .unwrap()
-            })
+            .map(|_| anchor.ranging(&swarm_element, sd_ranging_noise))
             .sum();
 
         let empirical_mean = empirical_sum / num_samples as f32;
@@ -91,14 +96,12 @@ mod tests {
         let empirical_variance: f32 = (0..num_samples)
             .into_par_iter()
             .map(|_| {
-                let x = anchor
-                    .time_of_arival_mesurment(&swarm_element, measurement_std_deviation)
-                    .unwrap();
+                let x = anchor.ranging(&swarm_element, sd_ranging_noise);
                 (x - empirical_mean).powi(2)
             })
             .sum::<f32>()
             / num_samples as f32;
-        let expected_variance = measurement_std_deviation.powi(2);
+        let expected_variance = sd_ranging_noise.powi(2);
 
         let mean_tolerance = 0.01;
         assert!(

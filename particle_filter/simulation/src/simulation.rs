@@ -1,6 +1,6 @@
 use nalgebra::Vector3;
 
-use agents::{anchor, swarm_element};
+use agents::{Measurements, anchor, swarm_element};
 use visualization::visualization::{Command, RerunVisualization};
 
 pub struct Simulation {
@@ -23,12 +23,55 @@ impl Simulation {
     }
 
     pub fn run(&mut self, time_steps: usize) {
+        let len = self.swarm_elements.len();
         for frame in 0..time_steps {
             for se in &mut self.swarm_elements {
                 se.move_position();
                 se.particle_filter
                     .update_position(se.velocity, se.transmission_noise);
+            }
+            for i in 0..len {
+                for j in (i + 1)..len {
+                    let (head, tail) = self.swarm_elements.split_at_mut(j);
+                    let se_i = &mut head[i];
+                    let se_j = &mut tail[0];
 
+                    let var_rx = se_i.ranging_noise.std_dev().powi(2);
+                    let var_tx = se_j.ranging_noise.std_dev().powi(2);
+                    let combined_std = (var_rx + var_tx).sqrt();
+
+                    let i_ranging_j = se_i.ranging(&se_j, combined_std);
+
+                    let j_ranging_i = se_j.ranging(&se_i, combined_std);
+
+                    se_i.particle_filter.update_weights(
+                        i_ranging_j,
+                        se_j.est_position,
+                        combined_std,
+                    );
+
+                    se_j.particle_filter.update_weights(
+                        j_ranging_i,
+                        se_i.est_position,
+                        combined_std,
+                    );
+
+                    for anchor in self.anchors.iter() {
+                        let var_tx = anchor.ranging_noise.std_dev().powi(2);
+                        let combined_std = (var_rx + var_tx).sqrt();
+                        let i_ranging_anchor = anchor.ranging(&se_i, combined_std);
+
+                        se_i.particle_filter.update_weights(
+                            i_ranging_anchor,
+                            anchor.position,
+                            combined_std,
+                        );
+                    }
+                }
+            }
+
+            for se in &mut self.swarm_elements {
+                se.particle_filter.normalize_weights();
                 se.update_est_position();
             }
 
