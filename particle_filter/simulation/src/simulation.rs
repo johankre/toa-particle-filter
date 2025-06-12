@@ -93,24 +93,27 @@ impl Simulation {
         viz.log(Command::SetFrame(frame as i64));
 
         for swarm in &self.swarm_elements {
-            let particle_positions: Vec<[f32; 3]> = swarm
+            let particle_positions: Vec<[f64; 3]> = swarm
                 .particle_filter
                 .particles
                 .iter()
                 .map(|p| {
-                    let v: Vector3<f32> = p.position;
+                    let v: Vector3<f64> = p.position;
                     [v.x, v.y, v.z]
                 })
                 .collect();
+
+            let particle_colors = swarm.particle_filter.color_gradient();
 
             let entity_name = swarm.name.clone() + "/particle_filter";
             viz.log(Command::LogPoints(
                 entity_name,
                 particle_positions,
                 particle_size,
+                Some(particle_colors)
             ));
 
-            let swarm_true_position: Vec<[f32; 3]> = vec![[
+            let swarm_true_position: Vec<[f64; 3]> = vec![[
                 swarm.true_position.x,
                 swarm.true_position.y,
                 swarm.true_position.z,
@@ -121,9 +124,10 @@ impl Simulation {
                 entity_name,
                 swarm_true_position,
                 swarm_size,
+                None
             ));
 
-            let swarm_est_position: Vec<[f32; 3]> = vec![[
+            let swarm_est_position: Vec<[f64; 3]> = vec![[
                 swarm.est_position.x,
                 swarm.est_position.y,
                 swarm.est_position.z,
@@ -134,14 +138,15 @@ impl Simulation {
                 entity_name,
                 swarm_est_position,
                 swarm_size,
+                None
             ));
         }
 
-        let anchors_position: Vec<[f32; 3]> = self
+        let anchors_position: Vec<[f64; 3]> = self
             .anchors
             .iter()
             .map(|p| {
-                let v: Vector3<f32> = p.position;
+                let v: Vector3<f64> = p.position;
                 [v.x, v.y, v.z]
             })
             .collect();
@@ -151,6 +156,7 @@ impl Simulation {
             entity_name,
             anchors_position,
             anchors_size,
+            None
         ));
     }
 }
