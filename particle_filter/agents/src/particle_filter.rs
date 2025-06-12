@@ -120,6 +120,45 @@ impl ParticleFilter {
             p.weight *= lik;
         });
     }
+
+    pub fn resample(&mut self) {
+        let n = self.particles.len();
+        if n == 0 {
+            return;
+        }
+
+        self.normalize_weights();
+
+        let mut rng = rand::rng();
+        let u0 = rng.random::<f32>() / (n as f32);
+
+        let positions: Vec<f32> = (0..n).map(|j| u0 + (j as f32) / (n as f32)).collect();
+
+        let mut cum_weights = Vec::with_capacity(n);
+        let mut csum = 0.0;
+        for p in self.particles.iter() {
+            csum += p.weight;
+            cum_weights.push(csum);
+        }
+
+        if let Some(last) = cum_weights.last_mut() {
+            *last = 1.0;
+        }
+
+        let mut new_particles = Vec::with_capacity(n);
+        let mut i = 0;
+        for pos in positions {
+            while i + 1 < n && pos > cum_weights[i] {
+                i += 1;
+            }
+
+            let mut sel = self.particles[i].clone();
+            sel.weight = 1.0 / (n as f32);
+            new_particles.push(sel);
+        }
+
+        self.particles = new_particles;
+    }
 }
 
 #[cfg(test)]

@@ -25,6 +25,9 @@ impl Simulation {
     pub fn run(&mut self, time_steps: usize) {
         let len = self.swarm_elements.len();
         for frame in 0..time_steps {
+            if self.visualizer.is_some() {
+                self.capture_frame(frame);
+            }
             for se in &mut self.swarm_elements {
                 se.move_position();
                 se.particle_filter
@@ -55,96 +58,100 @@ impl Simulation {
                         se_i.est_position,
                         combined_std,
                     );
+                }
 
-                    for anchor in self.anchors.iter() {
-                        let var_tx = anchor.ranging_noise.std_dev().powi(2);
-                        let combined_std = (var_rx + var_tx).sqrt();
-                        let i_ranging_anchor = anchor.ranging(&se_i, combined_std);
+                let se_i = &mut self.swarm_elements[i];
+                let var_rx = se_i.ranging_noise.std_dev().powi(2);
+                for anchor in self.anchors.iter() {
+                    let var_tx = anchor.ranging_noise.std_dev().powi(2);
+                    let combined_std = (var_rx + var_tx).sqrt();
+                    let i_ranging_anchor = anchor.ranging(&se_i, combined_std);
 
-                        se_i.particle_filter.update_weights(
-                            i_ranging_anchor,
-                            anchor.position,
-                            combined_std,
-                        );
-                    }
+                    se_i.particle_filter.update_weights(
+                        i_ranging_anchor,
+                        anchor.position,
+                        combined_std,
+                    );
                 }
             }
 
             for se in &mut self.swarm_elements {
-                se.particle_filter.normalize_weights();
+                se.particle_filter.resample();
                 se.update_est_position();
             }
-
-            if let Some(viz) = &mut self.visualizer {
-                // Temp hardcoding, at some point this will be handeld by a config parser
-                let particle_size = 2.0;
-                let swarm_size = 6.0;
-                let anchors_size = 6.0;
-
-                viz.log(Command::SetFrame(frame as i64));
-
-                for swarm in &self.swarm_elements {
-                    let particle_positions: Vec<[f32; 3]> = swarm
-                        .particle_filter
-                        .particles
-                        .iter()
-                        .map(|p| {
-                            let v: Vector3<f32> = p.position;
-                            [v.x, v.y, v.z]
-                        })
-                        .collect();
-
-                    let entity_name = swarm.name.clone() + "/particle_filter";
-                    viz.log(Command::LogPoints(
-                        entity_name,
-                        particle_positions,
-                        particle_size,
-                    ));
-
-                    let swarm_true_position: Vec<[f32; 3]> = vec![[
-                        swarm.true_position.x,
-                        swarm.true_position.y,
-                        swarm.true_position.z,
-                    ]];
-
-                    let entity_name = swarm.name.clone() + "/true_position";
-                    viz.log(Command::LogPoints(
-                        entity_name,
-                        swarm_true_position,
-                        swarm_size,
-                    ));
-
-                    let swarm_est_position: Vec<[f32; 3]> = vec![[
-                        swarm.est_position.x,
-                        swarm.est_position.y,
-                        swarm.est_position.z,
-                    ]];
-
-                    let entity_name = swarm.name.clone() + "/est_position";
-                    viz.log(Command::LogPoints(
-                        entity_name,
-                        swarm_est_position,
-                        swarm_size,
-                    ));
-                }
-
-                let anchors_position: Vec<[f32; 3]> = self
-                    .anchors
-                    .iter()
-                    .map(|p| {
-                        let v: Vector3<f32> = p.position;
-                        [v.x, v.y, v.z]
-                    })
-                    .collect();
-
-                let entity_name = String::from("anchors");
-                viz.log(Command::LogPoints(
-                    entity_name,
-                    anchors_position,
-                    anchors_size,
-                ));
-            }
         }
+    }
+
+    fn capture_frame(&mut self, frame: usize) {
+        let viz = self.visualizer.as_mut().unwrap();
+
+        // Temp hardcoding, at some point this will be handeld by a config parser
+        let particle_size = 2.0;
+        let swarm_size = 6.0;
+        let anchors_size = 6.0;
+
+        viz.log(Command::SetFrame(frame as i64));
+
+        for swarm in &self.swarm_elements {
+            let particle_positions: Vec<[f32; 3]> = swarm
+                .particle_filter
+                .particles
+                .iter()
+                .map(|p| {
+                    let v: Vector3<f32> = p.position;
+                    [v.x, v.y, v.z]
+                })
+                .collect();
+
+            let entity_name = swarm.name.clone() + "/particle_filter";
+            viz.log(Command::LogPoints(
+                entity_name,
+                particle_positions,
+                particle_size,
+            ));
+
+            let swarm_true_position: Vec<[f32; 3]> = vec![[
+                swarm.true_position.x,
+                swarm.true_position.y,
+                swarm.true_position.z,
+            ]];
+
+            let entity_name = swarm.name.clone() + "/true_position";
+            viz.log(Command::LogPoints(
+                entity_name,
+                swarm_true_position,
+                swarm_size,
+            ));
+
+            let swarm_est_position: Vec<[f32; 3]> = vec![[
+                swarm.est_position.x,
+                swarm.est_position.y,
+                swarm.est_position.z,
+            ]];
+
+            let entity_name = swarm.name.clone() + "/est_position";
+            viz.log(Command::LogPoints(
+                entity_name,
+                swarm_est_position,
+                swarm_size,
+            ));
+        }
+
+        let anchors_position: Vec<[f32; 3]> = self
+            .anchors
+            .iter()
+            .map(|p| {
+                let v: Vector3<f32> = p.position;
+                [v.x, v.y, v.z]
+            })
+            .collect();
+
+        let entity_name = String::from("anchors");
+        viz.log(Command::LogPoints(
+            entity_name,
+            anchors_position,
+            anchors_size,
+        ));
     }
 }
 
