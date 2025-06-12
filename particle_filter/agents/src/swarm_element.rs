@@ -25,11 +25,11 @@ impl SwarmElement {
         particle_filter: ParticleFilter,
         velocity: Vector3<f32>,
         sd_transmition_noise: f32,
-        sd_raning_noise: f32,
+        sd_ranging_noise: f32,
     ) -> Self {
         let transmission_noise = Normal::new(0.0, sd_transmition_noise)
             .expect("SwarmElement: transmition_noise distribution failed");
-        let ranging_noise = Normal::new(0.0, sd_raning_noise)
+        let ranging_noise = Normal::new(0.0, sd_ranging_noise)
             .expect("SwarmElement: transmition_noise distribution failed");
         Self {
             name,
@@ -78,9 +78,10 @@ impl Default for SwarmElement {
 }
 
 impl Measurements for SwarmElement {
-    fn ranging(&self, swarm_element: &SwarmElement, raning_noise: &Normal<f32>) -> f32 {
+    fn ranging(&self, swarm_element: &SwarmElement, std_raning_noise: f32) -> f32 {
+        let noise = Normal::new(0.0, std_raning_noise).unwrap();
         let diff = self.true_position - swarm_element.true_position;
-        diff.norm() + raning_noise.sample(&mut rng())
+        diff.norm() + noise.sample(&mut rng())
     }
 }
 
@@ -215,12 +216,11 @@ mod tests {
         );
 
         let measurement_std_deviation = 0.1;
-        let ranging_noise = Normal::new(0.0, measurement_std_deviation).unwrap();
 
         let num_samples = 100_000;
         let empirical_sum: f32 = (0..num_samples)
             .into_par_iter()
-            .map(|_| sw1.ranging(&sw2, &ranging_noise))
+            .map(|_| sw1.ranging(&sw2, measurement_std_deviation))
             .sum();
 
         let empirical_mean = empirical_sum / num_samples as f32;
@@ -228,7 +228,7 @@ mod tests {
         let empirical_variance: f32 = (0..num_samples)
             .into_par_iter()
             .map(|_| {
-                let x = sw1.ranging(&sw2, &ranging_noise);
+                let x = sw1.ranging(&sw2, measurement_std_deviation);
                 (x - empirical_mean).powi(2)
             })
             .sum::<f32>()

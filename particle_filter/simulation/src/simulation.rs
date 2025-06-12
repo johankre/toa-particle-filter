@@ -36,21 +36,37 @@ impl Simulation {
                     let se_i = &mut head[i];
                     let se_j = &mut tail[0];
 
-                    let i_ranging_j = se_i.ranging(&se_j, &se_i.transmission_noise);
+                    let var_rx = se_i.ranging_noise.std_dev().powi(2);
+                    let var_tx = se_j.ranging_noise.std_dev().powi(2);
+                    let combined_std = (var_rx + var_tx).sqrt();
 
-                    let j_ranging_i = se_j.ranging(&se_i, &se_j.transmission_noise);
+                    let i_ranging_j = se_i.ranging(&se_j, combined_std);
+
+                    let j_ranging_i = se_j.ranging(&se_i, combined_std);
 
                     se_i.particle_filter.update_weights(
                         i_ranging_j,
                         se_j.est_position,
-                        se_i.ranging_noise.std_dev(),
+                        combined_std,
                     );
 
                     se_j.particle_filter.update_weights(
                         j_ranging_i,
                         se_i.est_position,
-                        se_j.ranging_noise.std_dev(),
+                        combined_std,
                     );
+
+                    for anchor in self.anchors.iter() {
+                        let var_tx = anchor.ranging_noise.std_dev().powi(2);
+                        let combined_std = (var_rx + var_tx).sqrt();
+                        let i_ranging_anchor = anchor.ranging(&se_i, combined_std);
+
+                        se_i.particle_filter.update_weights(
+                            i_ranging_anchor,
+                            anchor.position,
+                            combined_std,
+                        );
+                    }
                 }
             }
 
