@@ -14,6 +14,7 @@ fn main() {
     let true_position = Vector3::new(0.5, 0.5, 0.5);
     let velocity = Vector3::new(0.1, 0.1, 0.1);
     let sd_transmition_noise = 0.1;
+    let sd_ragning_noise = 0.3;
     let num_particles = 100_000;
     let x_bounds = (0.0, 1.0);
     let y_bounds = (0.0, 2.0);
@@ -35,6 +36,7 @@ fn main() {
         particle_filter_1,
         velocity,
         sd_transmition_noise,
+        sd_ragning_noise,
     );
 
     let swarm_element_2 = SwarmElement::new(
@@ -43,6 +45,7 @@ fn main() {
         particle_filter_2,
         velocity,
         sd_transmition_noise,
+        sd_ragning_noise,
     );
 
     let anchor = Anchor::default();

@@ -1,4 +1,4 @@
-use crate::{measurments::Measurments, particle_filter::ParticleFilter};
+use crate::{particle_filter::ParticleFilter, Measurements};
 
 use nalgebra::Vector3;
 use rand::rng;
@@ -15,6 +15,7 @@ pub struct SwarmElement {
     pub velocity: Vector3<f32>,
 
     pub transmission_noise: Normal<f32>,
+    pub ranging_noise: Normal<f32>,
 }
 
 impl SwarmElement {
@@ -24,8 +25,11 @@ impl SwarmElement {
         particle_filter: ParticleFilter,
         velocity: Vector3<f32>,
         sd_transmition_noise: f32,
+        sd_raning_noise: f32,
     ) -> Self {
         let transmission_noise = Normal::new(0.0, sd_transmition_noise)
+            .expect("SwarmElement: transmition_noise distribution failed");
+        let ranging_noise = Normal::new(0.0, sd_raning_noise)
             .expect("SwarmElement: transmition_noise distribution failed");
         Self {
             name,
@@ -34,6 +38,7 @@ impl SwarmElement {
             particle_filter,
             velocity,
             transmission_noise,
+            ranging_noise,
         }
     }
 
@@ -58,7 +63,7 @@ impl SwarmElement {
 
 impl Default for SwarmElement {
     fn default() -> Self {
-        let noise = Normal::new(0.0, 1.0).expect("transmission_noise σ must be > 0");
+        let noise = Normal::new(0.0, 1.0).unwrap();
 
         SwarmElement {
             name: String::new(),
@@ -67,16 +72,13 @@ impl Default for SwarmElement {
             particle_filter: ParticleFilter::default(),
             velocity: Vector3::zeros(),
             transmission_noise: noise,
+            ranging_noise: noise,
         }
     }
 }
 
-impl Measurments for SwarmElement {
-    fn time_of_arival_mesurment(
-        &self,
-        swarm_element: &SwarmElement,
-        raning_noise: &Normal<f32>,
-    ) -> f32 {
+impl Measurements for SwarmElement {
+    fn ranging(&self, swarm_element: &SwarmElement, raning_noise: &Normal<f32>) -> f32 {
         let diff = self.true_position - swarm_element.true_position;
         diff.norm() + raning_noise.sample(&mut rng())
     }
@@ -105,6 +107,7 @@ mod tests {
         let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
 
         let transmission_noise = 0.1;
+        let ranging_noise = 0.5;
 
         let swarm_element = SwarmElement::new(
             swarm_name.clone(),
@@ -112,6 +115,7 @@ mod tests {
             particle_filter,
             velocity,
             transmission_noise,
+            ranging_noise,
         );
 
         assert_eq!(swarm_element.name, swarm_name);
@@ -123,7 +127,7 @@ mod tests {
             .particle_filter
             .particles
             .iter()
-            .for_each(|p| assert_eq!(p.weight, 1.0 / (num_particles as f64)));
+            .for_each(|p| assert_eq!(p.weight, 1.0 / (num_particles as f32)));
     }
 
     #[test]
@@ -144,6 +148,7 @@ mod tests {
         let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
 
         let transmission_noise = 0.1;
+        let ranging_noise = 0.5;
 
         let mut swarm_element = SwarmElement::new(
             swarm_name,
@@ -151,6 +156,7 @@ mod tests {
             particle_filter,
             velocity,
             transmission_noise,
+            ranging_noise,
         );
         swarm_element.update_est_position();
 
@@ -168,7 +174,7 @@ mod tests {
     }
 
     #[test]
-    fn test_swarm_element_toa() {
+    fn test_swarm_element_ranging() {
         let swarm_name_1 = String::from("swarm_element_1");
         let swarm_name_2 = String::from("swarm_element_2");
 
@@ -179,25 +185,33 @@ mod tests {
         let sw1_true_position = Vector3::new(3.3, 2.2, 1.1);
         let velocity_1 = Vector3::new(0.1, 0.1, 0.1);
         let particle_filter = ParticleFilter::new(&enclosure, num_particles);
+
         let transmission_noise_1 = 0.1;
+        let ranging_noise_1 = 0.5;
+
         let sw1 = SwarmElement::new(
             swarm_name_1,
             sw1_true_position,
             particle_filter,
             velocity_1,
             transmission_noise_1,
+            ranging_noise_1,
         );
 
         let sw2_true_position = Vector3::new(1.1, 4.2, 2.1);
         let velocity_2 = Vector3::new(0.2, 0.2, 0.2);
         let particle_filter = ParticleFilter::new(&enclosure, num_particles);
+
         let transmission_noise_2 = 0.1;
+        let ranging_noise_2 = 0.5;
+
         let sw2 = SwarmElement::new(
             swarm_name_2,
             sw2_true_position,
             particle_filter,
             velocity_2,
             transmission_noise_2,
+            ranging_noise_2,
         );
 
         let measurement_std_deviation = 0.1;
@@ -206,7 +220,7 @@ mod tests {
         let num_samples = 100_000;
         let empirical_sum: f32 = (0..num_samples)
             .into_par_iter()
-            .map(|_| sw1.time_of_arival_mesurment(&sw2, &ranging_noise))
+            .map(|_| sw1.ranging(&sw2, &ranging_noise))
             .sum();
 
         let empirical_mean = empirical_sum / num_samples as f32;
@@ -214,7 +228,7 @@ mod tests {
         let empirical_variance: f32 = (0..num_samples)
             .into_par_iter()
             .map(|_| {
-                let x = sw1.time_of_arival_mesurment(&sw2, &ranging_noise);
+                let x = sw1.ranging(&sw2, &ranging_noise);
                 (x - empirical_mean).powi(2)
             })
             .sum::<f32>()

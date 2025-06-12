@@ -69,7 +69,7 @@ impl Enclosure for Spher {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Particle {
     pub position: Vector3<f32>,
-    pub weight: f64,
+    pub weight: f32,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -78,7 +78,7 @@ pub struct ParticleFilter {
 }
 
 impl Particle {
-    pub fn new(position: Vector3<f32>, weight: f64) -> Self {
+    pub fn new(position: Vector3<f32>, weight: f32) -> Self {
         Self { position, weight }
     }
 }
@@ -89,14 +89,14 @@ impl ParticleFilter {
         let particles: Vec<Particle> = (0..num_particles)
             .map(|_| {
                 let pos = enclosure.sample(&mut rng);
-                Particle::new(pos, 1.0 / (num_particles as f64))
+                Particle::new(pos, 1.0 / (num_particles as f32))
             })
             .collect();
 
         ParticleFilter { particles }
     }
     pub fn normalize_weights(&mut self) {
-        let sum: f64 = self.particles.par_iter().map(|p| p.weight).sum();
+        let sum: f32 = self.particles.par_iter().map(|p| p.weight).sum();
         self.particles.par_iter_mut().for_each(|p| p.weight /= sum);
     }
 
@@ -108,6 +108,16 @@ impl ParticleFilter {
                 transmission_noise.sample(&mut rng()),
             );
             p.position += velocity + noise;
+        });
+    }
+
+    pub fn update_weights(&mut self, ranging: f32, pos: Vector3<f32>, sigma: f32) {
+        let var = sigma.powi(2);
+        self.particles.iter_mut().for_each(|p| {
+            let pred_range = (p.position - pos).norm();
+            let err = ranging - pred_range;
+            let lik = (-0.5 * err * err / var).exp();
+            p.weight *= lik;
         });
     }
 }
@@ -244,12 +254,12 @@ mod tests {
         let mut particle_filter = ParticleFilter::new(&bounding_box, num_particles);
 
         for i in 0..particle_filter.particles.len() {
-            particle_filter.particles[i].weight = 1.0 + i as f64;
+            particle_filter.particles[i].weight = 1.0 + i as f32;
         }
 
         particle_filter.normalize_weights();
 
-        let particle_weight_sum: f64 = particle_filter.particles.iter().map(|p| p.weight).sum();
+        let particle_weight_sum: f32 = particle_filter.particles.iter().map(|p| p.weight).sum();
         assert!(particle_weight_sum == 1.0);
     }
 }

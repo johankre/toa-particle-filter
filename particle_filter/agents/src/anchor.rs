@@ -1,5 +1,5 @@
-use crate::measurments::Measurments;
 use crate::swarm_element::SwarmElement;
+use crate::Measurements;
 
 use nalgebra::Vector3;
 use rand::rng;
@@ -18,12 +18,8 @@ impl Anchor {
     }
 }
 
-impl Measurments for Anchor {
-    fn time_of_arival_mesurment(
-        &self,
-        swarm_element: &SwarmElement,
-        raning_noise: &Normal<f32>,
-    ) -> f32 {
+impl Measurements for Anchor {
+    fn ranging(&self, swarm_element: &SwarmElement, raning_noise: &Normal<f32>) -> f32 {
         let diff = self.position - swarm_element.true_position;
         diff.norm() + raning_noise.sample(&mut rng())
     }
@@ -50,7 +46,7 @@ mod tests {
     }
 
     #[test]
-    fn test_anchor_toa() {
+    fn test_anchor_ranging() {
         let anchor_x = 2.0;
         let anchor_y = 0.0;
         let anchor_z = 1.0;
@@ -63,7 +59,9 @@ mod tests {
         let enclosure =
             BoundingBox::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(5.0, 5.0, 5.0)).unwrap();
         let particle_filter = ParticleFilter::new(&enclosure, num_particles);
+
         let transmission_noise = 0.1;
+        let ranging_noise = 0.1;
 
         let swarm_element = SwarmElement::new(
             swarm_element_name,
@@ -71,6 +69,7 @@ mod tests {
             particle_filter,
             velocity,
             transmission_noise,
+            ranging_noise,
         );
 
         let measurement_std_deviation: f32 = 0.1;
@@ -79,7 +78,7 @@ mod tests {
         let num_samples = 100_000;
         let empirical_sum: f32 = (0..num_samples)
             .into_par_iter()
-            .map(|_| anchor.time_of_arival_mesurment(&swarm_element, &ranging_noise))
+            .map(|_| anchor.ranging(&swarm_element, &ranging_noise))
             .sum();
 
         let empirical_mean = empirical_sum / num_samples as f32;
@@ -87,7 +86,7 @@ mod tests {
         let empirical_variance: f32 = (0..num_samples)
             .into_par_iter()
             .map(|_| {
-                let x = anchor.time_of_arival_mesurment(&swarm_element, &ranging_noise);
+                let x = anchor.ranging(&swarm_element, &ranging_noise);
                 (x - empirical_mean).powi(2)
             })
             .sum::<f32>()
