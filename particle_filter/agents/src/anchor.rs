@@ -7,12 +7,12 @@ use rand_distr::{Distribution, Normal};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Anchor {
-    pub position: Vector3<f32>,
-    pub ranging_noise: Normal<f32>,
+    pub position: Vector3<f64>,
+    pub ranging_noise: Normal<f64>,
 }
 
 impl Anchor {
-    pub fn new(position: Vector3<f32>, sd_ranging_noise: f32) -> Self {
+    pub fn new(position: Vector3<f64>, sd_ranging_noise: f64) -> Self {
         let ranging_noise = Normal::new(0.0, sd_ranging_noise)
             .expect("SwarmElement: transmition_noise distribution failed");
         Self {
@@ -33,7 +33,7 @@ impl Default for Anchor {
 }
 
 impl Measurements for Anchor {
-    fn ranging(&self, swarm_element: &SwarmElement, std_raning: f32) -> f32 {
+    fn ranging(&self, swarm_element: &SwarmElement, std_raning: f64) -> f64 {
         let noise = Normal::new(0.0, std_raning).unwrap();
         let diff = self.position - swarm_element.true_position;
         diff.norm() + noise.sample(&mut rng())
@@ -86,21 +86,21 @@ mod tests {
         );
 
         let num_samples = 100_000;
-        let empirical_sum: f32 = (0..num_samples)
+        let empirical_sum: f64 = (0..num_samples)
             .into_par_iter()
             .map(|_| anchor.ranging(&swarm_element, sd_ranging_noise))
             .sum();
 
-        let empirical_mean = empirical_sum / num_samples as f32;
+        let empirical_mean = empirical_sum / num_samples as f64;
 
-        let empirical_variance: f32 = (0..num_samples)
+        let empirical_variance: f64 = (0..num_samples)
             .into_par_iter()
             .map(|_| {
                 let x = anchor.ranging(&swarm_element, sd_ranging_noise);
                 (x - empirical_mean).powi(2)
             })
-            .sum::<f32>()
-            / num_samples as f32;
+            .sum::<f64>()
+            / num_samples as f64;
         let expected_variance = sd_ranging_noise.powi(2);
 
         let mean_tolerance = 0.01;

@@ -9,23 +9,23 @@ use rayon::prelude::*;
 pub struct SwarmElement {
     pub name: String,
 
-    pub true_position: Vector3<f32>,
-    pub est_position: Vector3<f32>,
+    pub true_position: Vector3<f64>,
+    pub est_position: Vector3<f64>,
     pub particle_filter: ParticleFilter,
-    pub velocity: Vector3<f32>,
+    pub velocity: Vector3<f64>,
 
-    pub transmission_noise: Normal<f32>,
-    pub ranging_noise: Normal<f32>,
+    pub transmission_noise: Normal<f64>,
+    pub ranging_noise: Normal<f64>,
 }
 
 impl SwarmElement {
     pub fn new(
         name: String,
-        true_position: Vector3<f32>,
+        true_position: Vector3<f64>,
         particle_filter: ParticleFilter,
-        velocity: Vector3<f32>,
-        sd_transmition_noise: f32,
-        sd_ranging_noise: f32,
+        velocity: Vector3<f64>,
+        sd_transmition_noise: f64,
+        sd_ranging_noise: f64,
     ) -> Self {
         let transmission_noise = Normal::new(0.0, sd_transmition_noise)
             .expect("SwarmElement: transmition_noise distribution failed");
@@ -47,12 +47,12 @@ impl SwarmElement {
             .particle_filter
             .particles
             .par_iter()
-            .map(|p| p.weight as f32 * p.position)
+            .map(|p| p.weight as f64 * p.position)
             .sum();
     }
 
     pub fn move_position(&mut self) {
-        let noise: Vector3<f32> = Vector3::new(
+        let noise: Vector3<f64> = Vector3::new(
             self.transmission_noise.sample(&mut rng()),
             self.transmission_noise.sample(&mut rng()),
             self.transmission_noise.sample(&mut rng()),
@@ -78,7 +78,7 @@ impl Default for SwarmElement {
 }
 
 impl Measurements for SwarmElement {
-    fn ranging(&self, swarm_element: &SwarmElement, std_raning_noise: f32) -> f32 {
+    fn ranging(&self, swarm_element: &SwarmElement, std_raning_noise: f64) -> f64 {
         let noise = Normal::new(0.0, std_raning_noise).unwrap();
         let diff = self.true_position - swarm_element.true_position;
         diff.norm() + noise.sample(&mut rng())
@@ -128,7 +128,7 @@ mod tests {
             .particle_filter
             .particles
             .iter()
-            .for_each(|p| assert_eq!(p.weight, 1.0 / (num_particles as f32)));
+            .for_each(|p| assert_eq!(p.weight, 1.0 / (num_particles as f64)));
     }
 
     #[test]
@@ -218,21 +218,21 @@ mod tests {
         let measurement_std_deviation = 0.1;
 
         let num_samples = 100_000;
-        let empirical_sum: f32 = (0..num_samples)
+        let empirical_sum: f64 = (0..num_samples)
             .into_par_iter()
             .map(|_| sw1.ranging(&sw2, measurement_std_deviation))
             .sum();
 
-        let empirical_mean = empirical_sum / num_samples as f32;
+        let empirical_mean = empirical_sum / num_samples as f64;
 
-        let empirical_variance: f32 = (0..num_samples)
+        let empirical_variance: f64 = (0..num_samples)
             .into_par_iter()
             .map(|_| {
                 let x = sw1.ranging(&sw2, measurement_std_deviation);
                 (x - empirical_mean).powi(2)
             })
-            .sum::<f32>()
-            / num_samples as f32;
+            .sum::<f64>()
+            / num_samples as f64;
         let expected_variance = measurement_std_deviation.powi(2);
 
         let mean_tolerance = 0.01;

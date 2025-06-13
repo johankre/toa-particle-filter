@@ -5,17 +5,17 @@ use rand_distr::{Distribution, Normal};
 use rayon::prelude::*;
 
 pub trait Enclosure {
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Vector3<f32>;
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Vector3<f64>;
 }
 
 pub struct BoundingBox {
-    dist_x: Uniform<f32>,
-    dist_y: Uniform<f32>,
-    dist_z: Uniform<f32>,
+    dist_x: Uniform<f64>,
+    dist_y: Uniform<f64>,
+    dist_z: Uniform<f64>,
 }
 
 impl BoundingBox {
-    pub fn new(min: Vector3<f32>, max: Vector3<f32>) -> Result<Self, rand::distr::uniform::Error> {
+    pub fn new(min: Vector3<f64>, max: Vector3<f64>) -> Result<Self, rand::distr::uniform::Error> {
         Ok(Self {
             dist_x: Uniform::new(min.x, max.x)?,
             dist_y: Uniform::new(min.y, max.y)?,
@@ -25,7 +25,7 @@ impl BoundingBox {
 }
 
 impl Enclosure for BoundingBox {
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Vector3<f32> {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Vector3<f64> {
         let x = rng.sample(self.dist_x);
         let y = rng.sample(self.dist_y);
         let z = rng.sample(self.dist_z);
@@ -35,25 +35,25 @@ impl Enclosure for BoundingBox {
 }
 
 pub struct Spher {
-    origo: Vector3<f32>,
-    dist_r: Uniform<f32>,
-    dist_polar: Uniform<f32>,
-    dist_azimuth: Uniform<f32>,
+    origo: Vector3<f64>,
+    dist_r: Uniform<f64>,
+    dist_polar: Uniform<f64>,
+    dist_azimuth: Uniform<f64>,
 }
 
 impl Spher {
-    pub fn new(r: f32, origo: Vector3<f32>) -> Result<Self, rand::distr::uniform::Error> {
+    pub fn new(r: f64, origo: Vector3<f64>) -> Result<Self, rand::distr::uniform::Error> {
         Ok(Self {
             origo,
             dist_r: Uniform::new(0.0, r)?,
-            dist_polar: Uniform::new(0.0, std::f32::consts::PI)?,
-            dist_azimuth: Uniform::new(0.0, 2.0 * std::f32::consts::PI)?,
+            dist_polar: Uniform::new(0.0, std::f64::consts::PI)?,
+            dist_azimuth: Uniform::new(0.0, 2.0 * std::f64::consts::PI)?,
         })
     }
 }
 
 impl Enclosure for Spher {
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Vector3<f32> {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Vector3<f64> {
         let r = rng.sample(self.dist_r);
         let polar = rng.sample(self.dist_polar);
         let azimuthal = rng.sample(self.dist_azimuth);
@@ -66,10 +66,10 @@ impl Enclosure for Spher {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Particle {
-    pub position: Vector3<f32>,
-    pub weight: f32,
+    pub position: Vector3<f64>,
+    pub weight: f64,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -78,7 +78,7 @@ pub struct ParticleFilter {
 }
 
 impl Particle {
-    pub fn new(position: Vector3<f32>, weight: f32) -> Self {
+    pub fn new(position: Vector3<f64>, weight: f64) -> Self {
         Self { position, weight }
     }
 }
@@ -89,20 +89,20 @@ impl ParticleFilter {
         let particles: Vec<Particle> = (0..num_particles)
             .map(|_| {
                 let pos = enclosure.sample(&mut rng);
-                Particle::new(pos, 1.0 / (num_particles as f32))
+                Particle::new(pos, 1.0 / (num_particles as f64))
             })
             .collect();
 
         ParticleFilter { particles }
     }
     pub fn normalize_weights(&mut self) {
-        let sum: f32 = self.particles.par_iter().map(|p| p.weight).sum();
+        let sum: f64 = self.particles.par_iter().map(|p| p.weight).sum();
         self.particles.par_iter_mut().for_each(|p| p.weight /= sum);
     }
 
-    pub fn update_position(&mut self, velocity: Vector3<f32>, transmission_noise: Normal<f32>) {
+    pub fn update_position(&mut self, velocity: Vector3<f64>, transmission_noise: Normal<f64>) {
         self.particles.par_iter_mut().for_each(|p| {
-            let noise: Vector3<f32> = Vector3::new(
+            let noise: Vector3<f64> = Vector3::new(
                 transmission_noise.sample(&mut rng()),
                 transmission_noise.sample(&mut rng()),
                 transmission_noise.sample(&mut rng()),
@@ -111,7 +111,7 @@ impl ParticleFilter {
         });
     }
 
-    pub fn update_weights(&mut self, ranging: f32, pos: Vector3<f32>, sigma: f32) {
+    pub fn update_weights(&mut self, ranging: f64, pos: Vector3<f64>, sigma: f64) {
         let var = sigma.powi(2);
         self.particles.iter_mut().for_each(|p| {
             let pred_range = (p.position - pos).norm();
@@ -126,13 +126,10 @@ impl ParticleFilter {
         if n == 0 {
             return;
         }
-
-        self.normalize_weights();
-
         let mut rng = rand::rng();
-        let u0 = rng.random::<f32>() / (n as f32);
+        let u0 = rng.random::<f64>() / (n as f64);
 
-        let positions: Vec<f32> = (0..n).map(|j| u0 + (j as f32) / (n as f32)).collect();
+        let positions: Vec<f64> = (0..n).map(|j| u0 + (j as f64) / (n as f64)).collect();
 
         let mut cum_weights = Vec::with_capacity(n);
         let mut csum = 0.0;
@@ -153,10 +150,9 @@ impl ParticleFilter {
             }
 
             let mut sel = self.particles[i].clone();
-            sel.weight = 1.0 / (n as f32);
+            sel.weight = 1.0 / (n as f64);
             new_particles.push(sel);
         }
-
         self.particles = new_particles;
     }
 }
@@ -231,9 +227,9 @@ mod tests {
             z_sum += p.position.z;
         });
 
-        let x_empirical_mean = x_sum / (num_particles as f32);
-        let y_empirical_mean = y_sum / (num_particles as f32);
-        let z_empirical_mean = z_sum / (num_particles as f32);
+        let x_empirical_mean = x_sum / (num_particles as f64);
+        let y_empirical_mean = y_sum / (num_particles as f64);
+        let z_empirical_mean = z_sum / (num_particles as f64);
 
         let tolerance = 0.1;
 
@@ -249,7 +245,7 @@ mod tests {
         let x_origo = 1.0;
         let y_origo = 2.0;
         let z_origo = 3.0;
-        let origo: Vector3<f32> = Vector3::new(x_origo, y_origo, z_origo);
+        let origo: Vector3<f64> = Vector3::new(x_origo, y_origo, z_origo);
 
         let spher = Spher::new(r, origo).unwrap();
         let num_particles = 100_000;
@@ -266,9 +262,9 @@ mod tests {
             z_sum += p.position.z;
         });
 
-        let x_empirical_mean = x_sum / (num_particles as f32);
-        let y_empirical_mean = y_sum / (num_particles as f32);
-        let z_empirical_mean = z_sum / (num_particles as f32);
+        let x_empirical_mean = x_sum / (num_particles as f64);
+        let y_empirical_mean = y_sum / (num_particles as f64);
+        let z_empirical_mean = z_sum / (num_particles as f64);
 
         let tolerance = 0.1;
 
@@ -293,12 +289,12 @@ mod tests {
         let mut particle_filter = ParticleFilter::new(&bounding_box, num_particles);
 
         for i in 0..particle_filter.particles.len() {
-            particle_filter.particles[i].weight = 1.0 + i as f32;
+            particle_filter.particles[i].weight = 1.0 + i as f64;
         }
 
         particle_filter.normalize_weights();
 
-        let particle_weight_sum: f32 = particle_filter.particles.iter().map(|p| p.weight).sum();
+        let particle_weight_sum: f64 = particle_filter.particles.iter().map(|p| p.weight).sum();
         assert!(particle_weight_sum == 1.0);
     }
 }

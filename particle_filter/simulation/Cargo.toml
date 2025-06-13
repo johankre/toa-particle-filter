@@ -5,5 +5,7 @@ edition = "2024"
 
 [dependencies]
 agents = { path = "../agents" }
+colorous = "1.0.16"
 nalgebra = "0.33.2"
+once_cell = "1.21.3"
 visualization = { path = "../visualization" }
