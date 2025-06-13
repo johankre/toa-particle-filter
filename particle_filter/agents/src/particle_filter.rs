@@ -1,4 +1,3 @@
-use colorous::{Color, PLASMA};
 use nalgebra::Vector3;
 use rand::Rng;
 use rand::{distr::Uniform, rng};
@@ -127,9 +126,6 @@ impl ParticleFilter {
         if n == 0 {
             return;
         }
-
-        self.normalize_weights();
-
         let mut rng = rand::rng();
         let u0 = rng.random::<f64>() / (n as f64);
 
@@ -157,19 +153,7 @@ impl ParticleFilter {
             sel.weight = 1.0 / (n as f64);
             new_particles.push(sel);
         }
-
         self.particles = new_particles;
-    }
-
-    pub fn color_gradient(&self) -> Vec<[u8; 4]> {
-        self.particles
-            .iter()
-            .map(|&p| {
-                let t = p.weight.clamp(0.0, 1.0);
-                let Color { r, g, b } = PLASMA.eval_continuous(t);
-                [r, g, b, 255u8]
-            })
-            .collect()
     }
 }
 

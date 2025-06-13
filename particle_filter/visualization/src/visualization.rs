@@ -6,7 +6,7 @@ use std::{
 
 pub enum Command {
     SetFrame(i64),
-    LogPoints(String, Vec<[f64; 3]>, f64, Option<Vec<[u8;4]>>),
+    LogPoints(String, Vec<[f64; 3]>, f64, Option<Vec<[u8; 4]>>),
 }
 
 pub struct RerunVisualization {
@@ -29,11 +29,18 @@ impl RerunVisualization {
                             .map(|[x, y, z]| [x as f32, y as f32, z as f32])
                             .collect();
 
-                        let radii =
-                        vec![rerun::components::Radius::new_ui_points(radius as f32); positions_f32.len()];
+                        let radii = vec![
+                            rerun::components::Radius::new_ui_points(radius as f32);
+                            positions_f32.len()
+                        ];
                         if let Some(col) = color {
-                            rec.log(path, &Points3D::new(positions_f32).with_radii(radii).with_colors(col))
-                                .expect("Rerun: unable to log points");
+                            rec.log(
+                                path,
+                                &Points3D::new(positions_f32)
+                                    .with_radii(radii)
+                                    .with_colors(col),
+                            )
+                            .expect("Rerun: unable to log points");
                         } else {
                             rec.log(path, &Points3D::new(positions_f32).with_radii(radii))
                                 .expect("Rerun: unable to log points");

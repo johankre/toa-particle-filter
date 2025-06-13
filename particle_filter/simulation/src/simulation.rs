@@ -1,7 +1,21 @@
+use colorous::INFERNO;
 use nalgebra::Vector3;
+use once_cell::sync::Lazy;
 
-use agents::{Measurements, anchor, swarm_element};
+use agents::{Measurements, anchor, particle_filter::Particle, swarm_element};
 use visualization::visualization::{Command, RerunVisualization};
+
+const W_MIN: f64 = 1e-9;
+const W_MAX: f64 = 5e-5;
+const EPSILON: f64 = 1e-10;
+const GAMMA: f64 = 0.7;
+
+static LOG_MIN: Lazy<f64> = Lazy::new(|| (W_MIN + EPSILON).ln());
+static INV_LOG_SPAN: Lazy<f64> = Lazy::new(|| {
+    let log_max = (W_MAX + EPSILON).ln();
+    let span = (log_max - *LOG_MIN).max(f64::EPSILON);
+    1.0 / span
+});
 
 pub struct Simulation {
     pub swarm_elements: Vec<swarm_element::SwarmElement>,
@@ -25,9 +39,6 @@ impl Simulation {
     pub fn run(&mut self, time_steps: usize) {
         let len = self.swarm_elements.len();
         for frame in 0..time_steps {
-            if self.visualizer.is_some() {
-                self.capture_frame(frame);
-            }
             for se in &mut self.swarm_elements {
                 se.move_position();
                 se.particle_filter
@@ -73,11 +84,19 @@ impl Simulation {
                         combined_std,
                     );
                 }
+                se_i.particle_filter.normalize_weights();
+            }
+
+            for se in &mut self.swarm_elements {
+                se.update_est_position();
+            }
+
+            if self.visualizer.is_some() {
+                self.capture_frame(frame);
             }
 
             for se in &mut self.swarm_elements {
                 se.particle_filter.resample();
-                se.update_est_position();
             }
         }
     }
@@ -86,7 +105,7 @@ impl Simulation {
         let viz = self.visualizer.as_mut().unwrap();
 
         // Temp hardcoding, at some point this will be handeld by a config parser
-        let particle_size = 2.0;
+        let particle_size = 1.0;
         let swarm_size = 6.0;
         let anchors_size = 6.0;
 
@@ -103,14 +122,14 @@ impl Simulation {
                 })
                 .collect();
 
-            let particle_colors = swarm.particle_filter.color_gradient();
+            let particle_colors = Self::color_gradient(&swarm.particle_filter.particles);
 
             let entity_name = swarm.name.clone() + "/particle_filter";
             viz.log(Command::LogPoints(
                 entity_name,
                 particle_positions,
                 particle_size,
-                Some(particle_colors)
+                Some(particle_colors),
             ));
 
             let swarm_true_position: Vec<[f64; 3]> = vec![[
@@ -124,7 +143,7 @@ impl Simulation {
                 entity_name,
                 swarm_true_position,
                 swarm_size,
-                None
+                None,
             ));
 
             let swarm_est_position: Vec<[f64; 3]> = vec![[
@@ -138,7 +157,7 @@ impl Simulation {
                 entity_name,
                 swarm_est_position,
                 swarm_size,
-                None
+                None,
             ));
         }
 
@@ -156,8 +175,23 @@ impl Simulation {
             entity_name,
             anchors_position,
             anchors_size,
-            None
+            None,
         ));
+    }
+
+    fn color_gradient(particles: &Vec<Particle>) -> Vec<[u8; 4]> {
+        particles
+            .iter()
+            .map(|&p| Self::map_weight_to_color(p.weight))
+            .collect()
+    }
+
+    fn map_weight_to_color(w: f64) -> [u8; 4] {
+        let wc = (w.clamp(W_MIN, W_MAX) + EPSILON).ln();
+        let t_lin = (wc - *LOG_MIN) * *INV_LOG_SPAN;
+        let t = t_lin.clamp(0.0, 1.0).powf(GAMMA);
+        let c = INFERNO.eval_continuous(t);
+        [c.r, c.g, c.b, 255]
     }
 }
 
