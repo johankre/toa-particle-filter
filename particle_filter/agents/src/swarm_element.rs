@@ -57,7 +57,10 @@ impl SwarmElement {
             self.transmission_noise.sample(&mut rng()),
             self.transmission_noise.sample(&mut rng()),
         );
-        self.true_position += self.velocity + noise;
+        let noisy_velocity = self.velocity + noise;
+        self.true_position += noisy_velocity;
+        self.est_position += noisy_velocity;
+        self.particle_filter.update_position(noisy_velocity);
     }
 }
 

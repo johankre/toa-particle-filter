@@ -1,7 +1,6 @@
 use nalgebra::Vector3;
+use rand::distr::Uniform;
 use rand::Rng;
-use rand::{distr::Uniform, rng};
-use rand_distr::{Distribution, Normal};
 use rayon::prelude::*;
 
 pub trait Enclosure {
@@ -100,14 +99,9 @@ impl ParticleFilter {
         self.particles.par_iter_mut().for_each(|p| p.weight /= sum);
     }
 
-    pub fn update_position(&mut self, velocity: Vector3<f64>, transmission_noise: Normal<f64>) {
+    pub fn update_position(&mut self, velocity: Vector3<f64>) {
         self.particles.par_iter_mut().for_each(|p| {
-            let noise: Vector3<f64> = Vector3::new(
-                transmission_noise.sample(&mut rng()),
-                transmission_noise.sample(&mut rng()),
-                transmission_noise.sample(&mut rng()),
-            );
-            p.position += velocity + noise;
+            p.position += velocity;
         });
     }
 
@@ -149,11 +143,11 @@ impl ParticleFilter {
                 i += 1;
             }
 
-            let mut sel = self.particles[i].clone();
-            sel.weight = 1.0 / (n as f64);
+            let sel = self.particles[i].clone();
             new_particles.push(sel);
         }
         self.particles = new_particles;
+        self.normalize_weights();
     }
 }
 
