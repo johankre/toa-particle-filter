@@ -72,7 +72,4 @@ fn main() {
     sim.run(time_steps);
 }
 ```
-
-A short demo of the example run
-https://github.com/user-attachments/assets/56544baa-260b-47e1-af8e-08d26f0a7f7e
-
+![TOA-Example](https://github.com/user-attachments/assets/974f15fd-e6be-4ef1-b20d-1dc456505120)
