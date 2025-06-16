@@ -2,6 +2,9 @@
 name = "particle_filter"
 version = "0.1.0"
 edition = "2021"
+authors = ["Johannes Reitan"]
+license = "MIT"
+repository = "https://github.com/johankre/ToA-Particle-Filter"
 
 [dependencies]
 simulation = { path = "simulation" }
