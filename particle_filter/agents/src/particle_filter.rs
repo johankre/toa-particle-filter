@@ -1,3 +1,6 @@
+use std::collections::HashSet;
+use std::usize;
+
 use nalgebra::Vector3;
 use rand::distr::Uniform;
 use rand::Rng;
@@ -136,17 +139,20 @@ impl ParticleFilter {
             *last = 1.0;
         }
 
-        let mut new_particles = Vec::with_capacity(n);
+        let mut seen = HashSet::new();
+        let mut unique_draws = Vec::with_capacity(n);
         let mut i = 0;
         for pos in positions {
             while i + 1 < n && pos > cum_weights[i] {
                 i += 1;
             }
 
-            let sel = self.particles[i].clone();
-            new_particles.push(sel);
+            if seen.insert(i) {
+                unique_draws.push(self.particles[i].clone());
+            }
         }
-        self.particles = new_particles;
+
+        self.particles = unique_draws;
         self.normalize_weights();
     }
 }
