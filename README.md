@@ -11,7 +11,7 @@ A Rust implementation of a Time-of-Arrival particle filter for localization and 
 ## Getting Started
 ### Installation
 ```console
-https://github.com/johankre/ToA-Particle-Filter.git
+git clone https://github.com/johankre/ToA-Particle-Filter.git
 cd ToA-Particle-Filter.git
 cargo build --release
 ```
