@@ -43,36 +43,54 @@ impl Simulation {
                 se.move_position();
             }
             for i in 0..len {
-                let (head, tail) = self.swarm_elements.split_at_mut(i);
-                let se_i = &mut tail[0];
-                for se_j in head.iter() {
+                for j in 0..len {
+                    if i == j {
+                        continue;
+                    }
+
+                    let first = i.min(j);
+                    let second = i.max(j);
+                    let (se_first, se_second) = self.swarm_elements.split_at_mut(second);
+
+                    let se_i;
+                    let se_j;
+                    if i < j {
+                        // i is first
+                        se_i = &mut se_first[first];
+                        se_j = &mut se_second[0];
+                    } else {
+                        // i is second
+                        se_i = &mut se_second[0];
+                        se_j = &mut se_first[first];
+                    }
+
                     let var_rx = se_i.ranging_noise.std_dev().powi(2);
                     let var_tx = se_j.ranging_noise.std_dev().powi(2);
                     let combined_std = (var_rx + var_tx).sqrt();
 
                     let ranging = se_i.ranging(&se_j, combined_std);
 
+                    se_j.update_est_position();
                     se_i.particle_filter
                         .update_weights(ranging, se_j.est_position, combined_std);
-                }
-
-                let se_i = &mut self.swarm_elements[i];
-                let var_rx = se_i.ranging_noise.std_dev().powi(2);
-                for anchor in self.anchors.iter() {
-                    let var_tx = anchor.ranging_noise.std_dev().powi(2);
-                    let combined_std = (var_rx + var_tx).sqrt();
-                    let i_ranging_anchor = anchor.ranging(&se_i, combined_std);
-
-                    se_i.particle_filter.update_weights(
-                        i_ranging_anchor,
-                        anchor.position,
-                        combined_std,
-                    );
+                    se_i.particle_filter.normalize_weights();
                 }
             }
 
             for se in &mut self.swarm_elements {
-                se.particle_filter.normalize_weights();
+                let var_rx = se.ranging_noise.std_dev().powi(2);
+                for anchor in self.anchors.iter() {
+                    let var_tx = anchor.ranging_noise.std_dev().powi(2);
+                    let combined_std = (var_rx + var_tx).sqrt();
+                    let i_ranging_anchor = anchor.ranging(&se, combined_std);
+
+                    se.particle_filter.update_weights(
+                        i_ranging_anchor,
+                        anchor.position,
+                        combined_std,
+                    );
+                    se.particle_filter.normalize_weights();
+                }
                 se.update_est_position();
             }
 

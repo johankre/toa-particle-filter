@@ -47,7 +47,7 @@ impl SwarmElement {
             .particle_filter
             .particles
             .par_iter()
-            .map(|p| p.weight as f64 * p.position)
+            .map(|p| p.position.scale(p.weight))
             .sum();
     }
 
@@ -83,8 +83,8 @@ impl Default for SwarmElement {
 impl Measurements for SwarmElement {
     fn ranging(&self, swarm_element: &SwarmElement, std_raning_noise: f64) -> f64 {
         let noise = Normal::new(0.0, std_raning_noise).unwrap();
-        let diff = self.true_position - swarm_element.true_position;
-        diff.norm() + noise.sample(&mut rng())
+        let diff = (self.true_position - swarm_element.true_position).norm();
+        diff + noise.sample(&mut rng())
     }
 }
 
