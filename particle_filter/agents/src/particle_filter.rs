@@ -36,14 +36,14 @@ impl Enclosure for BoundingBox {
     }
 }
 
-pub struct Spher {
+pub struct Sphere {
     origo: Vector3<f64>,
     dist_r: Uniform<f64>,
     dist_polar: Uniform<f64>,
     dist_azimuth: Uniform<f64>,
 }
 
-impl Spher {
+impl Sphere {
     pub fn new(r: f64, origo: Vector3<f64>) -> Result<Self, rand::distr::uniform::Error> {
         Ok(Self {
             origo,
@@ -54,7 +54,7 @@ impl Spher {
     }
 }
 
-impl Enclosure for Spher {
+impl Enclosure for Sphere {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Vector3<f64> {
         let r = rng.sample(self.dist_r);
         let polar = rng.sample(self.dist_polar);

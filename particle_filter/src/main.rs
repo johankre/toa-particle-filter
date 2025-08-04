@@ -1,6 +1,6 @@
 use agents::{
     anchor::Anchor,
-    particle_filter::{ParticleFilter, Spher},
+    particle_filter::{ParticleFilter, Sphere},
     swarm_element::SwarmElement,
 };
 use nalgebra::Vector3;
@@ -17,7 +17,7 @@ fn main() {
     let radius = 20.0;
     let origin = Vector3::new(10.0, 10.0, 5.0);
 
-    let sphere = Spher::new(radius, origin).unwrap();
+    let sphere = Sphere::new(radius, origin).unwrap();
     let particle_filter = ParticleFilter::new(&sphere, num_particles);
 
     let swarm_element = SwarmElement::new(
@@ -31,14 +31,13 @@ fn main() {
 
     let anchor_std = 0.1;
     let anchor1 = Anchor::new(Vector3::new(0.0, 0.0, 0.0), anchor_std);
-    let anchor2 = Anchor::new(Vector3::new(20.0, 20.0, 0.0), anchor_std);
 
     let visualizer = RerunVisualization::new(String::from("ToA-Particle-Filter"))
         .expect("Unable to create rerun visualization");
 
     let mut sim = SimulationBuilder::default()
         .swarm_elements(vec![swarm_element])
-        .anchors(vec![anchor1, anchor2])
+        .anchors(vec![anchor1])
         .visualizer(visualizer)
         .build();
 
