@@ -21,10 +21,6 @@ Run the simulation:
 ```console
 cargo run --release
 ```
-If visualization is enabled, open another terminal and start the Rerun viewer:
-```console
-rerun
-```
 
 Note: SimulationBuilder requires at least one swarm element and one anchor to build. Providing a visualizer is optional.
 
