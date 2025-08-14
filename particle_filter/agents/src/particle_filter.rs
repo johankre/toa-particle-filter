@@ -239,7 +239,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mean_uniform_particle_distribution_spher() {
+    fn test_mean_uniform_particle_distribution_sphere() {
         let r = 4.0;
 
         let x_origo = 1.0;
@@ -247,10 +247,10 @@ mod tests {
         let z_origo = 3.0;
         let origo: Vector3<f64> = Vector3::new(x_origo, y_origo, z_origo);
 
-        let spher = Spher::new(r, origo).unwrap();
+        let sphere = Sphere::new(r, origo).unwrap();
         let num_particles = 100_000;
 
-        let particle_filter = ParticleFilter::new(&spher, num_particles);
+        let particle_filter = ParticleFilter::new(&sphere, num_particles);
 
         let mut x_sum = 0.0;
         let mut y_sum = 0.0;
@@ -268,9 +268,9 @@ mod tests {
 
         let tolerance = 0.1;
 
-        assert!((spher.origo.x - x_empirical_mean).abs() <= tolerance);
-        assert!((spher.origo.y - y_empirical_mean).abs() <= tolerance);
-        assert!((spher.origo.z - z_empirical_mean).abs() <= tolerance);
+        assert!((sphere.origo.x - x_empirical_mean).abs() <= tolerance);
+        assert!((sphere.origo.y - y_empirical_mean).abs() <= tolerance);
+        assert!((sphere.origo.z - z_empirical_mean).abs() <= tolerance);
     }
 
     #[test]

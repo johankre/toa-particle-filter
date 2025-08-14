@@ -1,5 +1,5 @@
-use rerun::{Points3D, SpawnOptions};
 use rerun::archetypes::Clear;
+use rerun::{Points3D, SpawnOptions};
 use std::{
     sync::mpsc::{self, SyncSender},
     thread::{self, JoinHandle},
@@ -18,13 +18,13 @@ pub struct RerunVisualization {
 impl RerunVisualization {
     pub fn new(visulization_name: String) -> Result<Self, Box<dyn std::error::Error>> {
         let rec = rerun::RecordingStreamBuilder::new(visulization_name).spawn_opts(
-        &SpawnOptions {
-            port: 9876,    
-            wait_for_bind: true,
-            ..Default::default()
-        },
-        None,
-    )?;
+            &SpawnOptions {
+                port: 9876,
+                wait_for_bind: true,
+                ..Default::default()
+            },
+            None,
+        )?;
 
         let (tx, rx) = mpsc::sync_channel::<Command>(100);
 
