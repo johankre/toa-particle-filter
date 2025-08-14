@@ -39,9 +39,6 @@ impl Simulation {
     pub fn run(&mut self, time_steps: usize) {
         let len = self.swarm_elements.len();
         for frame in 0..time_steps {
-            for se in &mut self.swarm_elements {
-                se.move_position();
-            }
             for i in 0..len {
                 for j in 0..len {
                     if i == j {
@@ -92,6 +89,7 @@ impl Simulation {
                     se.particle_filter.normalize_weights();
                 }
                 se.update_est_position();
+                se.particle_filter.resample();
             }
 
             if self.visualizer.is_some() {
@@ -99,7 +97,7 @@ impl Simulation {
             }
 
             for se in &mut self.swarm_elements {
-                se.particle_filter.resample();
+                se.move_position();
             }
         }
     }
