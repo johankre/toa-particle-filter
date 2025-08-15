@@ -39,7 +39,7 @@ fn main() {
     let radius = 20.0;
     let origin = Vector3::new(10.0, 10.0, 5.0);
 
-    let sphere = Spher::new(radius, origin).unwrap();
+    let sphere = Sphere::new(radius, origin).unwrap();
     let particle_filter = ParticleFilter::new(&sphere, num_particles);
 
     let swarm_element = SwarmElement::new(
