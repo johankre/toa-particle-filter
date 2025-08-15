@@ -3,7 +3,6 @@ use crate::{particle_filter::ParticleFilter, Measurements};
 use nalgebra::Vector3;
 use rand::rng;
 use rand_distr::{Distribution, Normal};
-use rayon::prelude::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SwarmElement {
@@ -43,12 +42,7 @@ impl SwarmElement {
     }
 
     pub fn update_est_position(&mut self) {
-        self.est_position = self
-            .particle_filter
-            .particles
-            .par_iter()
-            .map(|p| p.position.scale(p.weight))
-            .sum();
+        self.est_position = self.particle_filter.posterior_mean();
     }
 
     pub fn move_position(&mut self) {
@@ -91,6 +85,8 @@ impl Measurements for SwarmElement {
 #[cfg(test)]
 mod tests {
     use crate::particle_filter::BoundingBox;
+    use rayon::iter::IntoParallelIterator;
+    use rayon::iter::ParallelIterator;
 
     use super::*;
 
@@ -131,7 +127,7 @@ mod tests {
             .particle_filter
             .particles
             .iter()
-            .for_each(|p| assert_eq!(p.weight, 1.0 / (num_particles as f64)));
+            .for_each(|p| assert_eq!(p.log_weight, -(num_particles as f64).ln()));
     }
 
     #[test]

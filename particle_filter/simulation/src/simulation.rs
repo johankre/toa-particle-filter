@@ -1,21 +1,8 @@
 use colorous::INFERNO;
 use nalgebra::Vector3;
-use once_cell::sync::Lazy;
 
 use agents::{Measurements, anchor, particle_filter::Particle, swarm_element};
 use visualization::visualization::{Command, RerunVisualization};
-
-const W_MIN: f64 = 1e-9;
-const W_MAX: f64 = 5e-5;
-const EPSILON: f64 = 1e-10;
-const GAMMA: f64 = 0.7;
-
-static LOG_MIN: Lazy<f64> = Lazy::new(|| (W_MIN + EPSILON).ln());
-static INV_LOG_SPAN: Lazy<f64> = Lazy::new(|| {
-    let log_max = (W_MAX + EPSILON).ln();
-    let span = (log_max - *LOG_MIN).max(f64::EPSILON);
-    1.0 / span
-});
 
 pub struct Simulation {
     pub swarm_elements: Vec<swarm_element::SwarmElement>,
@@ -67,10 +54,8 @@ impl Simulation {
 
                     let ranging = se_i.ranging(&se_j, combined_std);
 
-                    se_j.update_est_position();
                     se_i.particle_filter
                         .update_weights(ranging, se_j.est_position, combined_std);
-                    se_i.particle_filter.normalize_weights();
                 }
             }
 
@@ -88,6 +73,7 @@ impl Simulation {
                     );
                     se.particle_filter.normalize_weights();
                 }
+                se.particle_filter.normalize_weights();
                 se.update_est_position();
                 se.particle_filter.resample();
             }
@@ -181,16 +167,26 @@ impl Simulation {
     }
 
     fn color_gradient(particles: &Vec<Particle>) -> Vec<[u8; 4]> {
+        let n = particles.len() as f64;
+        let lw_uniform = -n.ln();
+        let lw_max = particles
+            .iter()
+            .map(|p| p.log_weight)
+            .fold(f64::NEG_INFINITY, f64::max);
+
         particles
             .iter()
-            .map(|&p| Self::map_weight_to_color(p.weight))
+            .map(|p| Self::map_weight_to_color(p.log_weight, lw_max, lw_uniform))
             .collect()
     }
 
-    fn map_weight_to_color(w: f64) -> [u8; 4] {
-        let wc = (w.clamp(W_MIN, W_MAX) + EPSILON).ln();
-        let t_lin = (wc - *LOG_MIN) * *INV_LOG_SPAN;
-        let t = t_lin.clamp(0.0, 1.0).powf(GAMMA);
+    fn map_weight_to_color(log_weight: f64, max_weight: f64, min_weight: f64) -> [u8; 4] {
+        let den = (max_weight - min_weight).max(1e-12);
+        let mut t = ((log_weight - min_weight) / den).clamp(0.0, 1.0);
+
+        const GAMMA: f64 = 0.90;
+        t = t.powf(GAMMA);
+
         let c = INFERNO.eval_continuous(t);
         [c.r, c.g, c.b, 255]
     }

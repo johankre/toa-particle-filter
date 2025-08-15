@@ -71,7 +71,7 @@ impl Enclosure for Sphere {
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Particle {
     pub position: Vector3<f64>,
-    pub weight: f64,
+    pub log_weight: f64,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -80,26 +80,72 @@ pub struct ParticleFilter {
 }
 
 impl Particle {
-    pub fn new(position: Vector3<f64>, weight: f64) -> Self {
-        Self { position, weight }
+    pub fn new(position: Vector3<f64>, log_weight: f64) -> Self {
+        Self {
+            position,
+            log_weight,
+        }
     }
 }
 
 impl ParticleFilter {
     pub fn new<E: Enclosure>(enclosure: &E, num_particles: usize) -> Self {
         let mut rng = rand::rng();
+        let ln_uniform = -(num_particles as f64).ln();
         let particles: Vec<Particle> = (0..num_particles)
             .map(|_| {
                 let pos = enclosure.sample(&mut rng);
-                Particle::new(pos, 1.0 / (num_particles as f64))
+                Particle::new(pos, ln_uniform)
             })
             .collect();
 
         ParticleFilter { particles }
     }
+
+    fn linear_weights(&self) -> Vec<f64> {
+        let m = self
+            .particles
+            .iter()
+            .map(|p| p.log_weight)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let mut w: Vec<f64> = self
+            .particles
+            .iter()
+            .map(|p| (p.log_weight - m).exp())
+            .collect();
+        let s: f64 = w.iter().sum();
+        if s > 0.0 {
+            for wi in &mut w {
+                *wi /= s;
+            }
+        }
+        w
+    }
+
     pub fn normalize_weights(&mut self) {
-        let sum: f64 = self.particles.par_iter().map(|p| p.weight).sum();
-        self.particles.par_iter_mut().for_each(|p| p.weight /= sum);
+        let m = self
+            .particles
+            .iter()
+            .map(|p| p.log_weight)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let sum_exp: f64 = self
+            .particles
+            .iter()
+            .map(|p| (p.log_weight - m).exp())
+            .sum();
+        let lse = m + sum_exp.ln();
+        for p in &mut self.particles {
+            p.log_weight -= lse;
+        }
+    }
+
+    pub fn posterior_mean(&self) -> Vector3<f64> {
+        let w = self.linear_weights();
+        let mut mu = Vector3::zeros();
+        for (p, wi) in self.particles.iter().zip(w.iter()) {
+            mu += p.position * *wi;
+        }
+        mu
     }
 
     pub fn update_position(&mut self, velocity: Vector3<f64>) {
@@ -109,12 +155,11 @@ impl ParticleFilter {
     }
 
     pub fn update_weights(&mut self, ranging: f64, pos: Vector3<f64>, sigma: f64) {
-        let var = sigma.powi(2);
+        let inv_var = 1.0 / sigma.powi(2);
         self.particles.iter_mut().for_each(|p| {
-            let pred_range = (p.position - pos).norm();
-            let err = ranging - pred_range;
-            let lik = (-0.5 * err * err / var).exp();
-            p.weight *= lik;
+            let pred = (p.position - pos).norm();
+            let e = ranging - pred;
+            p.log_weight += -0.5 * e * e * inv_var;
         });
     }
 
@@ -123,15 +168,17 @@ impl ParticleFilter {
         if n == 0 {
             return;
         }
+
+        let w = self.linear_weights();
+
         let mut rng = rand::rng();
         let u0 = rng.random::<f64>() / (n as f64);
-
         let positions: Vec<f64> = (0..n).map(|j| u0 + (j as f64) / (n as f64)).collect();
 
         let mut cum_weights = Vec::with_capacity(n);
         let mut csum = 0.0;
-        for p in self.particles.iter() {
-            csum += p.weight;
+        for wi in &w {
+            csum += wi;
             cum_weights.push(csum);
         }
 
@@ -168,7 +215,7 @@ mod tests {
         let particle = Particle::new(position, 0.1);
 
         assert_eq!(particle.position, Vector3::new(1.0, 2.0, 3.0));
-        assert_eq!(particle.weight, 0.1);
+        assert_eq!(particle.log_weight, 0.1);
     }
 
     #[test]
@@ -289,12 +336,12 @@ mod tests {
         let mut particle_filter = ParticleFilter::new(&bounding_box, num_particles);
 
         for i in 0..particle_filter.particles.len() {
-            particle_filter.particles[i].weight = 1.0 + i as f64;
+            particle_filter.particles[i].log_weight = 1.0 + i as f64;
         }
 
         particle_filter.normalize_weights();
 
-        let particle_weight_sum: f64 = particle_filter.particles.iter().map(|p| p.weight).sum();
-        assert!(particle_weight_sum == 1.0);
+        let sum: f64 = particle_filter.linear_weights().iter().sum();
+        assert!(sum == 1.0);
     }
 }
