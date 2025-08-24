@@ -5,6 +5,21 @@ use rand::rng;
 use rand_distr::{Distribution, Normal};
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct PrevPositions {
+    pub true_position: Option<Vector3<f64>>,
+    pub est_position: Option<Vector3<f64>>,
+}
+
+impl Default for PrevPositions {
+    fn default() -> Self {
+        PrevPositions {
+            true_position: None,
+            est_position: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct SwarmElement {
     pub name: String,
 
@@ -15,6 +30,8 @@ pub struct SwarmElement {
 
     pub transmission_noise: Normal<f64>,
     pub ranging_noise: Normal<f64>,
+
+    pub prev_positions: PrevPositions,
 }
 
 impl SwarmElement {
@@ -30,6 +47,7 @@ impl SwarmElement {
             .expect("SwarmElement: transmition_noise distribution failed");
         let ranging_noise = Normal::new(0.0, sd_ranging_noise)
             .expect("SwarmElement: transmition_noise distribution failed");
+        let prev_positions = PrevPositions::default();
         Self {
             name,
             true_position,
@@ -38,14 +56,29 @@ impl SwarmElement {
             velocity,
             transmission_noise,
             ranging_noise,
+            prev_positions,
         }
     }
 
     pub fn update_est_position(&mut self) {
-        self.est_position = self.particle_filter.posterior_mean();
+        let new_est = self.particle_filter.posterior_mean();
+
+        match self.prev_positions.est_position {
+            None => {
+                // first valid estimate: seed both prev & current
+                self.prev_positions.est_position = Some(new_est);
+                self.est_position = new_est;
+            }
+            Some(_) => {
+                // normal case: shift prev <- current, set current <- new
+                self.prev_positions.est_position = Some(self.est_position);
+                self.est_position = new_est;
+            }
+        }
     }
 
     pub fn move_position(&mut self) {
+        self.prev_positions.true_position = Some(self.true_position);
         let noise: Vector3<f64> = Vector3::new(
             self.transmission_noise.sample(&mut rng()),
             self.transmission_noise.sample(&mut rng()),
@@ -53,7 +86,6 @@ impl SwarmElement {
         );
         let noisy_velocity = self.velocity + noise;
         self.true_position += noisy_velocity;
-        self.est_position += noisy_velocity;
         self.particle_filter.update_position(noisy_velocity);
     }
 }
@@ -70,6 +102,7 @@ impl Default for SwarmElement {
             velocity: Vector3::zeros(),
             transmission_noise: noise,
             ranging_noise: noise,
+            prev_positions: PrevPositions::default(),
         }
     }
 }
@@ -121,6 +154,8 @@ mod tests {
         assert_eq!(swarm_element.name, swarm_name);
         assert_eq!(swarm_element.true_position, true_position);
         assert_eq!(swarm_element.est_position, Vector3::zeros());
+        assert_eq!(swarm_element.prev_positions.est_position, None);
+        assert_eq!(swarm_element.prev_positions.true_position, None);
         assert_eq!(swarm_element.velocity, velocity);
         assert_eq!(swarm_element.particle_filter.particles.len(), 10);
         swarm_element
@@ -170,6 +205,11 @@ mod tests {
         );
         assert!(
             (swarm_element.est_position.z - (z_bounds.1 - z_bounds.0) / 2.0).abs() <= tolerance
+        );
+
+        assert_eq!(
+            swarm_element.prev_positions.est_position,
+            Some(swarm_element.est_position)
         );
     }
 
