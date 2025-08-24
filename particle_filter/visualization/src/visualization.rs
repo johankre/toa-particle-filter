@@ -1,5 +1,6 @@
 use rerun::archetypes::Clear;
 use rerun::{Points3D, SpawnOptions};
+use std::collections::HashMap;
 use std::{
     sync::mpsc::{self, SyncSender},
     thread::{self, JoinHandle},
@@ -8,6 +9,7 @@ use std::{
 pub enum Command {
     SetFrame(i64),
     LogPoints(String, Vec<[f64; 3]>, f64, Option<Vec<[u8; 4]>>),
+    LogTrajectory(String, [f64; 3], [f64; 3]),
 }
 
 pub struct RerunVisualization {
@@ -29,8 +31,10 @@ impl RerunVisualization {
         let (tx, rx) = mpsc::sync_channel::<Command>(100);
 
         let handle = thread::spawn(move || {
-            let mut last_particle_count: std::collections::HashMap<String, (usize, usize)> =
-                Default::default();
+            let mut last_particle_count: HashMap<String, (usize, usize)> = Default::default();
+            let mut traj_points: HashMap<String, Vec<[f32; 3]>> = HashMap::new();
+            const MAX_TRAJECTORY_HISTORY: usize = 100;
+
             for cmd in rx {
                 match cmd {
                     Command::SetFrame(frame) => rec.set_time_sequence("frame", frame),
@@ -76,6 +80,52 @@ impl RerunVisualization {
                                 .expect("Rerun: unable to log points");
                         }
                     }
+                    Command::LogTrajectory(path, start_point, end_point) => {
+                        let s = [
+                            start_point[0] as f32,
+                            start_point[1] as f32,
+                            start_point[2] as f32,
+                        ];
+                        let e = [
+                            end_point[0] as f32,
+                            end_point[1] as f32,
+                            end_point[2] as f32,
+                        ];
+
+                        let buf = traj_points.entry(path.to_owned()).or_default();
+
+                        if buf.is_empty() {
+                            buf.push(s);
+                            if s != e {
+                                buf.push(e);
+                            }
+                        } else {
+                            // continuity check: new segment must start where the last one ended
+                            let last = *buf.last().unwrap();
+                            if last != s {
+                                println!(
+                                    "trajectory discontinuity for '{}': segment start {:?} != previous end {:?}",
+                                    path, s, last
+                                );
+                            }
+                            // append END if we have moved from last element in traj_points
+                            if last != e {
+                                buf.push(e);
+                            }
+                        }
+
+                        // bounded history length (keeps the last MAX_TRAJECTORY_HISTORY connected)
+                        if buf.len() > MAX_TRAJECTORY_HISTORY {
+                            let drop_n = buf.len() - MAX_TRAJECTORY_HISTORY;
+                            buf.drain(0..drop_n);
+                        }
+                        let strip = rerun::LineStrips3D::new([buf.clone()])
+                            .with_radii([rerun::components::Radius::new_ui_points(0.5)])
+                            .with_colors([[200, 100, 100, 255]]);
+
+                        rec.log(path, &strip)
+                            .expect("Rerun: unable to log trajectory");
+                    }
                 }
             }
         });
@@ -97,8 +147,7 @@ impl RerunVisualization {
 
 impl Drop for RerunVisualization {
     fn drop(&mut self) {
-        self.tx.take(); // now tx is None, channel is closed
-
+        self.tx.take();
         if let Some(handle) = self.handle.take() {
             let _ = handle.join();
         }

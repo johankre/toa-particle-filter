@@ -146,24 +146,64 @@ impl Simulation {
                 swarm_size,
                 None,
             ));
+
+            if let Some(prev_est) = swarm.prev_positions.est_position {
+                let entity_name = format!("{}/est_position/trajectory", swarm.name);
+
+                let swarm_est_position: [f64; 3] = [
+                    swarm.est_position.x,
+                    swarm.est_position.y,
+                    swarm.est_position.z,
+                ];
+
+                let swarm_prev_est_position: [f64; 3] = [prev_est.x, prev_est.y, prev_est.z];
+
+                let est_trajectory = Command::LogTrajectory(
+                    entity_name,
+                    swarm_prev_est_position,
+                    swarm_est_position,
+                );
+                viz.log(est_trajectory);
+            }
+
+            if let Some(prev_true) = swarm.prev_positions.true_position {
+                let entity_name = format!("{}/true_position/trajectory", swarm.name);
+
+                let swarm_true_position: [f64; 3] = [
+                    swarm.true_position.x,
+                    swarm.true_position.y,
+                    swarm.true_position.z,
+                ];
+
+                let swarm_prev_true_position: [f64; 3] = [prev_true.x, prev_true.y, prev_true.z];
+
+                let true_trajectory = Command::LogTrajectory(
+                    entity_name,
+                    swarm_prev_true_position,
+                    swarm_true_position,
+                );
+                viz.log(true_trajectory);
+            }
         }
 
-        let anchors_position: Vec<[f64; 3]> = self
-            .anchors
-            .iter()
-            .map(|p| {
-                let v: Vector3<f64> = p.position;
-                [v.x, v.y, v.z]
-            })
-            .collect();
+        if frame == 0 {
+            let anchors_position: Vec<[f64; 3]> = self
+                .anchors
+                .iter()
+                .map(|p| {
+                    let v: Vector3<f64> = p.position;
+                    [v.x, v.y, v.z]
+                })
+                .collect();
 
-        let entity_name = String::from("anchors");
-        viz.log(Command::LogPoints(
-            entity_name,
-            anchors_position,
-            anchors_size,
-            None,
-        ));
+            let entity_name = String::from("anchors");
+            viz.log(Command::LogPoints(
+                entity_name,
+                anchors_position,
+                anchors_size,
+                None,
+            ));
+        }
     }
 
     fn color_gradient(particles: &Vec<Particle>) -> Vec<[u8; 4]> {
