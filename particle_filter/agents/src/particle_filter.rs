@@ -3,8 +3,10 @@ use std::usize;
 
 use nalgebra::Vector3;
 use rand::distr::Uniform;
-use rand::Rng;
+use rand::{rng, Rng};
 use rayon::prelude::*;
+
+use crate::dynamics_model::DynamicsModel;
 
 pub trait Enclosure {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Vector3<f64>;
@@ -148,15 +150,25 @@ impl ParticleFilter {
         mu
     }
 
-    pub fn update_position(&mut self, velocity: Vector3<f64>) {
-        self.particles.par_iter_mut().for_each(|p| {
-            p.position += velocity;
-        });
+    pub fn predict_with_measured_velocity<M>(
+        &mut self,
+        dt: f64,
+        velocity: Vector3<f64>,
+        dynamics_model: &M,
+    ) where
+        M: DynamicsModel + Sync,
+    {
+        self.particles.par_iter_mut().for_each_init(
+            || rng(),
+            |rng, p| {
+                p.position = dynamics_model.predict_next_state(dt, p.position, velocity, rng);
+            },
+        );
     }
 
     pub fn update_weights(&mut self, ranging: f64, pos: Vector3<f64>, sigma: f64) {
         let inv_var = 1.0 / sigma.powi(2);
-        self.particles.iter_mut().for_each(|p| {
+        self.particles.par_iter_mut().for_each(|p| {
             let pred = (p.position - pos).norm();
             let e = ranging - pred;
             p.log_weight += -0.5 * e * e * inv_var;

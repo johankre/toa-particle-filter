@@ -1,62 +1,40 @@
 use colorous::INFERNO;
 use nalgebra::Vector3;
 
-use agents::{Measurements, anchor, particle_filter::Particle, swarm_element};
+use agents::{
+    Measurements, anchor, dynamics_model::DynamicsModel, particle_filter::Particle, swarm_element,
+};
 use visualization::visualization::{Command, RerunVisualization};
 
-pub struct Simulation {
-    pub swarm_elements: Vec<swarm_element::SwarmElement>,
+pub struct Simulation<M: DynamicsModel> {
+    pub swarm_elements: Vec<swarm_element::SwarmElement<M>>,
     pub anchors: Vec<anchor::Anchor>,
     visualizer: Option<RerunVisualization>,
 }
 
-#[derive(Default)]
-pub struct SimulationBuilder {
-    swarm_elements: Option<Vec<swarm_element::SwarmElement>>,
+pub struct SimulationBuilder<M: DynamicsModel> {
+    swarm_elements: Option<Vec<swarm_element::SwarmElement<M>>>,
     anchors: Option<Vec<anchor::Anchor>>,
 
     visualizer: Option<RerunVisualization>,
 }
 
-impl Simulation {
-    pub fn builder() -> SimulationBuilder {
-        SimulationBuilder::default()
+impl<M: DynamicsModel> Simulation<M> {
+    pub fn builder() -> SimulationBuilder<M> {
+        SimulationBuilder {
+            swarm_elements: None,
+            anchors: None,
+            visualizer: None,
+        }
     }
 
-    pub fn run(&mut self, time_steps: usize) {
-        let len = self.swarm_elements.len();
-        for frame in 0..time_steps {
-            for i in 0..len {
-                for j in 0..len {
-                    if i == j {
-                        continue;
-                    }
-
-                    let first = i.min(j);
-                    let second = i.max(j);
-                    let (se_first, se_second) = self.swarm_elements.split_at_mut(second);
-
-                    let se_i;
-                    let se_j;
-                    if i < j {
-                        // i is first
-                        se_i = &mut se_first[first];
-                        se_j = &mut se_second[0];
-                    } else {
-                        // i is second
-                        se_i = &mut se_second[0];
-                        se_j = &mut se_first[first];
-                    }
-
-                    let var_rx = se_i.ranging_noise.std_dev().powi(2);
-                    let var_tx = se_j.ranging_noise.std_dev().powi(2);
-                    let combined_std = (var_rx + var_tx).sqrt();
-
-                    let ranging = se_i.ranging(&se_j, combined_std);
-
-                    se_i.particle_filter
-                        .update_weights(ranging, se_j.est_position, combined_std);
-                }
+    pub fn run(&mut self, steps: usize, step_size: f64)
+    where
+        M: Sync,
+    {
+        for frame in 0..steps {
+            for se in &mut self.swarm_elements {
+                se.step(step_size);
             }
 
             for se in &mut self.swarm_elements {
@@ -64,26 +42,21 @@ impl Simulation {
                 for anchor in self.anchors.iter() {
                     let var_tx = anchor.ranging_noise.std_dev().powi(2);
                     let combined_std = (var_rx + var_tx).sqrt();
-                    let i_ranging_anchor = anchor.ranging(&se, combined_std);
+                    let anchor_ranging = anchor.ranging(&se, combined_std);
 
                     se.particle_filter.update_weights(
-                        i_ranging_anchor,
+                        anchor_ranging,
                         anchor.position,
                         combined_std,
                     );
                     se.particle_filter.normalize_weights();
                 }
-                se.particle_filter.normalize_weights();
                 se.update_est_position();
                 se.particle_filter.resample();
             }
 
             if self.visualizer.is_some() {
                 self.capture_frame(frame);
-            }
-
-            for se in &mut self.swarm_elements {
-                se.move_position();
             }
         }
     }
@@ -119,11 +92,8 @@ impl Simulation {
                 Some(particle_colors),
             ));
 
-            let swarm_true_position: Vec<[f64; 3]> = vec![[
-                swarm.true_position.x,
-                swarm.true_position.y,
-                swarm.true_position.z,
-            ]];
+            let pos = swarm.dynamics_model.position();
+            let swarm_true_position: Vec<[f64; 3]> = vec![[pos.x, pos.y, pos.z]];
 
             let entity_name = swarm.name.clone() + "/true_position";
             viz.log(Command::LogPoints(
@@ -169,11 +139,8 @@ impl Simulation {
             if let Some(prev_true) = swarm.prev_positions.true_position {
                 let entity_name = format!("{}/true_position/trajectory", swarm.name);
 
-                let swarm_true_position: [f64; 3] = [
-                    swarm.true_position.x,
-                    swarm.true_position.y,
-                    swarm.true_position.z,
-                ];
+                let pos = swarm.dynamics_model.position();
+                let swarm_true_position: [f64; 3] = [pos.x, pos.y, pos.z];
 
                 let swarm_prev_true_position: [f64; 3] = [prev_true.x, prev_true.y, prev_true.z];
 
@@ -232,8 +199,8 @@ impl Simulation {
     }
 }
 
-impl SimulationBuilder {
-    pub fn swarm_elements(mut self, swarm_elements: Vec<swarm_element::SwarmElement>) -> Self {
+impl<M: DynamicsModel> SimulationBuilder<M> {
+    pub fn swarm_elements(mut self, swarm_elements: Vec<swarm_element::SwarmElement<M>>) -> Self {
         self.swarm_elements = Some(swarm_elements);
         self
     }
@@ -248,7 +215,7 @@ impl SimulationBuilder {
         self
     }
 
-    pub fn build(self) -> Simulation {
+    pub fn build(self) -> Simulation<M> {
         Simulation {
             swarm_elements: self
                 .swarm_elements
@@ -262,12 +229,14 @@ impl SimulationBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use agents::{anchor::Anchor, swarm_element::SwarmElement};
+    use agents::{
+        anchor::Anchor, dynamics_model::WhiteNoiseAcceleration, swarm_element::SwarmElement,
+    };
 
     #[test]
     #[should_panic(expected = "expected at least one swarm element")]
     fn build_without_swarm_elements_panics() {
-        SimulationBuilder::default()
+        Simulation::<WhiteNoiseAcceleration>::builder()
             .anchors(vec![Anchor::default()])
             .build();
     }
@@ -275,7 +244,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "expected at least one anchor")]
     fn build_without_anchors_panics() {
-        SimulationBuilder::default()
+        Simulation::<WhiteNoiseAcceleration>::builder()
             .swarm_elements(vec![SwarmElement::default()])
             .build();
     }
@@ -285,7 +254,7 @@ mod tests {
         let swarm_el = SwarmElement::default();
         let anchor = Anchor::default();
 
-        let sim = SimulationBuilder::default()
+        let sim = Simulation::<WhiteNoiseAcceleration>::builder()
             .swarm_elements(vec![swarm_el.clone()])
             .anchors(vec![anchor.clone()])
             .build();
