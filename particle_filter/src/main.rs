@@ -17,10 +17,10 @@ fn main() {
     let sigma_a = Vector3::new(1.0, 1.0, 0.5);
     let dynamics_model = WhiteNoiseAcceleration::new(position, velocity, mean_a, sigma_a);
 
-    let radius = 40.0;
+    let radius = 20.0;
     let origin = Vector3::new(10.0, 10.0, 5.0);
     let sphere = Sphere::new(radius, origin).unwrap();
-    let num_particles = 10_000_000;
+    let num_particles = 1_000_000;
     let particle_filter = ParticleFilter::new(&sphere, num_particles);
 
     let sd_transmission_noise = 0.1;
