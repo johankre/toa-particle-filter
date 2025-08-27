@@ -77,6 +77,10 @@ where
         }
     }
 
+    pub fn estimation_error(&self) -> f64 {
+        (self.dynamics_model.position() - self.est_position).norm()
+    }
+
     fn get_ranging_velocity(&self) -> Vector3<f64> {
         let noise: Vector3<f64> = Vector3::new(
             self.transmission_noise.sample(&mut rng()),
@@ -314,5 +318,87 @@ mod tests {
 
         let is_nosiy = 0.0;
         assert!(empirical_variance > is_nosiy);
+    }
+
+    #[test]
+    fn test_estimation_error_zero_when_estimate_equals_truth() {
+        let swarm_name = String::from("test");
+
+        let position = Vector3::new(0.5, 0.5, 0.5);
+        let est_position = position.clone();
+        let velocity = Vector3::new(0.1, 0.1, 0.1);
+        let mean_a = Vector3::zeros();
+        let sigma_a = Vector3::new(0.1, 0.1, 0.1);
+        let dynamics_model = WhiteNoiseAcceleration::new(position, velocity, mean_a, sigma_a);
+
+        let num_particles = 100_000;
+        let x_bounds = (0.0, 1.0);
+        let y_bounds = (0.0, 2.0);
+        let z_bounds = (0.0, 3.0);
+
+        let min = Vector3::new(x_bounds.0, y_bounds.0, z_bounds.0);
+        let max = Vector3::new(x_bounds.1, y_bounds.1, z_bounds.1);
+
+        let bounding_box = BoundingBox::new(min, max).unwrap();
+        let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
+
+        let transmission_noise = 0.1;
+        let ranging_noise = 0.5;
+
+        let mut swarm_element = SwarmElement::new(
+            swarm_name,
+            dynamics_model,
+            particle_filter,
+            transmission_noise,
+            ranging_noise,
+        );
+
+        swarm_element.est_position = est_position;
+        let err = swarm_element.estimation_error();
+        assert!(err.abs() <= 1e-12, "expected 0, got {err}");
+    }
+
+    #[test]
+    fn test_estimation_error_is_euclidean_norm_of_difference() {
+        let swarm_name = String::from("test");
+
+        let position = Vector3::new(1.0, 2.0, 3.0);
+        let velocity = Vector3::new(0.1, 0.1, 0.1);
+        let mean_a = Vector3::zeros();
+        let sigma_a = Vector3::new(0.1, 0.1, 0.1);
+        let dynamics_model = WhiteNoiseAcceleration::new(position, velocity, mean_a, sigma_a);
+
+        let num_particles = 100_000;
+        let x_bounds = (0.0, 1.0);
+        let y_bounds = (0.0, 2.0);
+        let z_bounds = (0.0, 3.0);
+
+        let min = Vector3::new(x_bounds.0, y_bounds.0, z_bounds.0);
+        let max = Vector3::new(x_bounds.1, y_bounds.1, z_bounds.1);
+
+        let bounding_box = BoundingBox::new(min, max).unwrap();
+        let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
+
+        let transmission_noise = 0.1;
+        let ranging_noise = 0.5;
+
+        let mut swarm_element = SwarmElement::new(
+            swarm_name,
+            dynamics_model,
+            particle_filter,
+            transmission_noise,
+            ranging_noise,
+        );
+
+        // truth at (1,2,3), estimate at (4,6,3) -> diff = (-3,-4,0), ||diff|| = 5
+        let est_position = Vector3::new(4.0, 6.0, 3.0);
+        let expected = 5.0;
+        swarm_element.est_position = est_position;
+
+        let err = swarm_element.estimation_error();
+        assert!(
+            (err - expected).abs() <= 1e-12,
+            "got {err}, expected {expected}"
+        );
     }
 }

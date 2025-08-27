@@ -1,5 +1,5 @@
 use rerun::archetypes::Clear;
-use rerun::{Points3D, SpawnOptions};
+use rerun::{Points3D, Scalars, SpawnOptions};
 use std::collections::HashMap;
 use std::{
     sync::mpsc::{self, SyncSender},
@@ -10,6 +10,7 @@ pub enum Command {
     SetFrame(i64),
     LogPoints(String, Vec<[f64; 3]>, f64, Option<Vec<[u8; 4]>>),
     LogTrajectory(String, [f64; 3], [f64; 3]),
+    LogScalarPlot(String, f64),
 }
 
 pub struct RerunVisualization {
@@ -124,6 +125,10 @@ impl RerunVisualization {
                             .with_colors([[200, 100, 100, 255]]);
 
                         rec.log(path, &strip)
+                            .expect("Rerun: unable to log trajectory");
+                    }
+                    Command::LogScalarPlot(path, value) => {
+                        rec.log(path, &Scalars::single(value))
                             .expect("Rerun: unable to log trajectory");
                     }
                 }
