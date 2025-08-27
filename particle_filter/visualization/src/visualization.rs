@@ -28,12 +28,12 @@ impl RerunVisualization {
             None,
         )?;
 
-        let (tx, rx) = mpsc::sync_channel::<Command>(100);
+        let (tx, rx) = mpsc::sync_channel::<Command>(1000);
 
         let handle = thread::spawn(move || {
             let mut last_particle_count: HashMap<String, (usize, usize)> = Default::default();
             let mut traj_points: HashMap<String, Vec<[f32; 3]>> = HashMap::new();
-            const MAX_TRAJECTORY_HISTORY: usize = 100;
+            const MAX_TRAJECTORY_HISTORY: usize = 1000;
 
             for cmd in rx {
                 match cmd {

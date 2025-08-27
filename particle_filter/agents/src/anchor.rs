@@ -1,3 +1,4 @@
+use crate::dynamics_model::DynamicsModel;
 use crate::swarm_element::SwarmElement;
 use crate::Measurements;
 
@@ -32,10 +33,10 @@ impl Default for Anchor {
     }
 }
 
-impl Measurements for Anchor {
-    fn ranging(&self, swarm_element: &SwarmElement, std_raning: f64) -> f64 {
+impl<M: DynamicsModel> Measurements<M> for Anchor {
+    fn ranging(&self, swarm_element: &SwarmElement<M>, std_raning: f64) -> f64 {
         let noise = Normal::new(0.0, std_raning).unwrap();
-        let diff = self.position - swarm_element.true_position;
+        let diff = self.position - swarm_element.dynamics_model.position();
         diff.norm() + noise.sample(&mut rng())
     }
 }
@@ -43,7 +44,10 @@ impl Measurements for Anchor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::particle_filter::{BoundingBox, ParticleFilter};
+    use crate::{
+        dynamics_model::WhiteNoiseAcceleration,
+        particle_filter::{BoundingBox, ParticleFilter},
+    };
 
     use rayon::prelude::*;
 
@@ -66,8 +70,12 @@ mod tests {
         let anchor = Anchor::new(position, sd_ranging_noise);
 
         let swarm_element_name = String::from("test_1");
-        let true_position = Vector3::new(3.3, 2.2, 1.1);
+        let position = Vector3::new(3.3, 2.2, 1.1);
         let velocity = Vector3::new(0.1, 0.1, 0.1);
+        let mean_a = Vector3::zeros();
+        let sigma_a = Vector3::new(0.1, 0.1, 0.1);
+        let dynamics_model = WhiteNoiseAcceleration::new(position, velocity, mean_a, sigma_a);
+
         let num_particles = 10;
         let enclosure =
             BoundingBox::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(5.0, 5.0, 5.0)).unwrap();
@@ -78,9 +86,8 @@ mod tests {
 
         let swarm_element = SwarmElement::new(
             swarm_element_name,
-            true_position,
+            dynamics_model,
             particle_filter,
-            velocity,
             transmission_noise,
             ranging_noise,
         );
@@ -105,7 +112,7 @@ mod tests {
 
         let mean_tolerance = 0.01;
         assert!(
-            (empirical_mean - (anchor.position - swarm_element.true_position).norm())
+            (empirical_mean - (anchor.position - swarm_element.dynamics_model.position()).norm())
                 < mean_tolerance
         );
 
