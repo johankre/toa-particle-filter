@@ -21,7 +21,8 @@ fn main() {
     let origin = Vector3::new(10.0, 10.0, 5.0);
     let sphere = Sphere::new(radius, origin).unwrap();
     let num_particles = 1_000_000;
-    let particle_filter = ParticleFilter::new(&sphere, num_particles);
+    let tau = 0.5;
+    let particle_filter = ParticleFilter::new(&sphere, num_particles, tau);
 
     let sd_transmission_noise = 0.1;
     let sd_ranging_noise = 0.8;
