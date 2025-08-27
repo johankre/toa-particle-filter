@@ -79,6 +79,7 @@ pub struct Particle {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ParticleFilter {
     pub particles: Vec<Particle>,
+    ess_tau: f64,
 }
 
 impl Particle {
@@ -91,7 +92,7 @@ impl Particle {
 }
 
 impl ParticleFilter {
-    pub fn new<E: Enclosure>(enclosure: &E, num_particles: usize) -> Self {
+    pub fn new<E: Enclosure>(enclosure: &E, num_particles: usize, ess_tau: f64) -> Self {
         let mut rng = rand::rng();
         let ln_uniform = -(num_particles as f64).ln();
         let particles: Vec<Particle> = (0..num_particles)
@@ -101,7 +102,7 @@ impl ParticleFilter {
             })
             .collect();
 
-        ParticleFilter { particles }
+        ParticleFilter { particles, ess_tau }
     }
 
     fn linear_weights(&self) -> Vec<f64> {
@@ -175,44 +176,57 @@ impl ParticleFilter {
         });
     }
 
+    fn ess(&self) -> f64 {
+        let w = self.linear_weights();
+        let sumsq: f64 = w.iter().map(|wi| wi * wi).sum();
+        if sumsq > 0.0 {
+            1.0 / sumsq
+        } else {
+            0.0
+        }
+    }
+
     pub fn resample(&mut self) {
         let n = self.particles.len();
+        let ess = self.ess();
+        let threshold = self.ess_tau * n as f64;
+
         if n == 0 {
             return;
-        }
+        } else if ess < threshold {
+            let w = self.linear_weights();
 
-        let w = self.linear_weights();
+            let mut rng = rand::rng();
+            let u0 = rng.random::<f64>() / (n as f64);
+            let positions: Vec<f64> = (0..n).map(|j| u0 + (j as f64) / (n as f64)).collect();
 
-        let mut rng = rand::rng();
-        let u0 = rng.random::<f64>() / (n as f64);
-        let positions: Vec<f64> = (0..n).map(|j| u0 + (j as f64) / (n as f64)).collect();
-
-        let mut cum_weights = Vec::with_capacity(n);
-        let mut csum = 0.0;
-        for wi in &w {
-            csum += wi;
-            cum_weights.push(csum);
-        }
-
-        if let Some(last) = cum_weights.last_mut() {
-            *last = 1.0;
-        }
-
-        let mut seen = HashSet::new();
-        let mut unique_draws = Vec::with_capacity(n);
-        let mut i = 0;
-        for pos in positions {
-            while i + 1 < n && pos > cum_weights[i] {
-                i += 1;
+            let mut cum_weights = Vec::with_capacity(n);
+            let mut csum = 0.0;
+            for wi in &w {
+                csum += wi;
+                cum_weights.push(csum);
             }
 
-            if seen.insert(i) {
-                unique_draws.push(self.particles[i].clone());
+            if let Some(last) = cum_weights.last_mut() {
+                *last = 1.0;
             }
-        }
 
-        self.particles = unique_draws;
-        self.normalize_weights();
+            let mut seen = HashSet::new();
+            let mut unique_draws = Vec::with_capacity(n);
+            let mut i = 0;
+            for pos in positions {
+                while i + 1 < n && pos > cum_weights[i] {
+                    i += 1;
+                }
+
+                if seen.insert(i) {
+                    unique_draws.push(self.particles[i].clone());
+                }
+            }
+
+            self.particles = unique_draws;
+            self.normalize_weights();
+        }
     }
 }
 
@@ -242,8 +256,9 @@ mod tests {
         let bounding_box = BoundingBox::new(min, max).unwrap();
 
         let num_particles = 100;
+        let ess_tau = 0.5;
 
-        let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
+        let particle_filter = ParticleFilter::new(&bounding_box, num_particles, ess_tau);
 
         for particle in particle_filter.particles.iter() {
             assert!(x_bounds.0 <= particle.position.x);
@@ -269,8 +284,9 @@ mod tests {
         let bounding_box = BoundingBox::new(min, max).unwrap();
 
         let num_particles = 100_000;
+        let ess_tau = 0.5;
 
-        let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
+        let particle_filter = ParticleFilter::new(&bounding_box, num_particles, ess_tau);
 
         let x_mean = (x_bounds.1 - x_bounds.0) / 2.0;
         let y_mean = (y_bounds.1 - y_bounds.0) / 2.0;
@@ -308,8 +324,9 @@ mod tests {
 
         let sphere = Sphere::new(r, origo).unwrap();
         let num_particles = 100_000;
+        let ess_tau = 0.5;
 
-        let particle_filter = ParticleFilter::new(&sphere, num_particles);
+        let particle_filter = ParticleFilter::new(&sphere, num_particles, ess_tau);
 
         let mut x_sum = 0.0;
         let mut y_sum = 0.0;
@@ -344,8 +361,9 @@ mod tests {
         let bounding_box = BoundingBox::new(min, max).unwrap();
 
         let num_particles = 4;
+        let ess_tau = 0.0;
 
-        let mut particle_filter = ParticleFilter::new(&bounding_box, num_particles);
+        let mut particle_filter = ParticleFilter::new(&bounding_box, num_particles, ess_tau);
 
         for i in 0..particle_filter.particles.len() {
             particle_filter.particles[i].log_weight = 1.0 + i as f64;

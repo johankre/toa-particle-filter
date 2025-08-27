@@ -76,10 +76,11 @@ mod tests {
         let sigma_a = Vector3::new(0.1, 0.1, 0.1);
         let dynamics_model = WhiteNoiseAcceleration::new(position, velocity, mean_a, sigma_a);
 
-        let num_particles = 10;
         let enclosure =
             BoundingBox::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(5.0, 5.0, 5.0)).unwrap();
-        let particle_filter = ParticleFilter::new(&enclosure, num_particles);
+        let num_particles = 10;
+        let ess_tau = 0.5;
+        let particle_filter = ParticleFilter::new(&enclosure, num_particles, ess_tau);
 
         let transmission_noise = 0.1;
         let ranging_noise = 0.1;

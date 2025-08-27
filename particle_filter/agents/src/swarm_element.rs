@@ -146,7 +146,6 @@ mod tests {
     #[test]
     fn test_new_swarm_element() {
         let swarm_name = String::from("swarm_element_1");
-        let num_particles = 10;
         let x_bounds = (0.0, 1.0);
         let y_bounds = (0.0, 1.0);
         let z_bounds = (0.0, 1.0);
@@ -159,9 +158,11 @@ mod tests {
 
         let min = Vector3::new(x_bounds.0, y_bounds.0, z_bounds.0);
         let max = Vector3::new(x_bounds.1, y_bounds.1, z_bounds.1);
-
         let bounding_box = BoundingBox::new(min, max).unwrap();
-        let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
+
+        let num_particles = 10;
+        let ess_tau = 0.5;
+        let particle_filter = ParticleFilter::new(&bounding_box, num_particles, ess_tau);
 
         let transmission_noise = 0.1;
         let ranging_noise = 0.5;
@@ -198,16 +199,16 @@ mod tests {
         let sigma_a = Vector3::new(0.1, 0.1, 0.1);
         let dynamics_model = WhiteNoiseAcceleration::new(position, velocity, mean_a, sigma_a);
 
-        let num_particles = 100_000;
         let x_bounds = (0.0, 1.0);
         let y_bounds = (0.0, 2.0);
         let z_bounds = (0.0, 3.0);
 
         let min = Vector3::new(x_bounds.0, y_bounds.0, z_bounds.0);
         let max = Vector3::new(x_bounds.1, y_bounds.1, z_bounds.1);
-
         let bounding_box = BoundingBox::new(min, max).unwrap();
-        let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
+        let num_particles = 100_000;
+        let ess_tau = 0.5;
+        let particle_filter = ParticleFilter::new(&bounding_box, num_particles, ess_tau);
 
         let transmission_noise = 0.1;
         let ranging_noise = 0.5;
@@ -245,17 +246,17 @@ mod tests {
         let swarm_name_1 = String::from("swarm_element_1");
         let swarm_name_2 = String::from("swarm_element_2");
 
-        let num_particles = 10;
-        let enclosure =
-            BoundingBox::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(5.0, 5.0, 5.0)).unwrap();
-
         let position_1 = Vector3::new(0.5, 0.5, 0.5);
         let velocity_1 = Vector3::new(0.1, 0.1, 0.1);
         let mean_a = Vector3::zeros();
         let sigma_a = Vector3::new(0.1, 0.1, 0.1);
         let dynamics_model = WhiteNoiseAcceleration::new(position_1, velocity_1, mean_a, sigma_a);
 
-        let particle_filter = ParticleFilter::new(&enclosure, num_particles);
+        let enclosure =
+            BoundingBox::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(5.0, 5.0, 5.0)).unwrap();
+        let num_particles = 10;
+        let ess_tau = 0.5;
+        let particle_filter = ParticleFilter::new(&enclosure, num_particles, ess_tau);
 
         let transmission_noise_1 = 0.1;
         let ranging_noise_1 = 0.5;
@@ -273,7 +274,8 @@ mod tests {
         let mean_a = Vector3::zeros();
         let sigma_a = Vector3::new(0.1, 0.1, 0.1);
         let dynamics_model = WhiteNoiseAcceleration::new(position_2, velocity_2, mean_a, sigma_a);
-        let particle_filter = ParticleFilter::new(&enclosure, num_particles);
+
+        let particle_filter = ParticleFilter::new(&enclosure, num_particles, ess_tau);
 
         let transmission_noise_2 = 0.1;
         let ranging_noise_2 = 0.5;
@@ -331,16 +333,16 @@ mod tests {
         let sigma_a = Vector3::new(0.1, 0.1, 0.1);
         let dynamics_model = WhiteNoiseAcceleration::new(position, velocity, mean_a, sigma_a);
 
-        let num_particles = 100_000;
         let x_bounds = (0.0, 1.0);
         let y_bounds = (0.0, 2.0);
         let z_bounds = (0.0, 3.0);
 
         let min = Vector3::new(x_bounds.0, y_bounds.0, z_bounds.0);
         let max = Vector3::new(x_bounds.1, y_bounds.1, z_bounds.1);
-
         let bounding_box = BoundingBox::new(min, max).unwrap();
-        let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
+        let num_particles = 100_000;
+        let ess_tau = 0.5;
+        let particle_filter = ParticleFilter::new(&bounding_box, num_particles, ess_tau);
 
         let transmission_noise = 0.1;
         let ranging_noise = 0.5;
@@ -368,7 +370,6 @@ mod tests {
         let sigma_a = Vector3::new(0.1, 0.1, 0.1);
         let dynamics_model = WhiteNoiseAcceleration::new(position, velocity, mean_a, sigma_a);
 
-        let num_particles = 100_000;
         let x_bounds = (0.0, 1.0);
         let y_bounds = (0.0, 2.0);
         let z_bounds = (0.0, 3.0);
@@ -377,7 +378,9 @@ mod tests {
         let max = Vector3::new(x_bounds.1, y_bounds.1, z_bounds.1);
 
         let bounding_box = BoundingBox::new(min, max).unwrap();
-        let particle_filter = ParticleFilter::new(&bounding_box, num_particles);
+        let num_particles = 100_000;
+        let ess_tau = 0.5;
+        let particle_filter = ParticleFilter::new(&bounding_box, num_particles, ess_tau);
 
         let transmission_noise = 0.1;
         let ranging_noise = 0.5;
