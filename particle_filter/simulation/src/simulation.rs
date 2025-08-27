@@ -84,52 +84,52 @@ impl<M: DynamicsModel> Simulation<M> {
 
             let particle_colors = Self::color_gradient(&swarm.particle_filter.particles);
 
-            let entity_name = swarm.name.clone() + "/particle_filter";
+            let pf_path = format!("{}/particle_filter", &swarm.name);
             viz.log(Command::LogPoints(
-                entity_name,
+                pf_path,
                 particle_positions,
                 particle_size,
                 Some(particle_colors),
             ));
 
+            let pos_path = format!("{}/true_position", &swarm.name);
             let pos = swarm.dynamics_model.position();
             let swarm_true_position: Vec<[f64; 3]> = vec![[pos.x, pos.y, pos.z]];
-
-            let entity_name = swarm.name.clone() + "/true_position";
             viz.log(Command::LogPoints(
-                entity_name,
+                pos_path,
                 swarm_true_position,
                 swarm_size,
                 None,
             ));
 
+            let est_pos_path = format!("{}/est_position", &swarm.name);
             let swarm_est_position: Vec<[f64; 3]> = vec![[
                 swarm.est_position.x,
                 swarm.est_position.y,
                 swarm.est_position.z,
             ]];
-
-            let entity_name = swarm.name.clone() + "/est_position";
             viz.log(Command::LogPoints(
-                entity_name,
+                est_pos_path,
                 swarm_est_position,
                 swarm_size,
                 None,
             ));
 
-            if let Some(prev_est) = swarm.prev_positions.est_position {
-                let entity_name = format!("{}/est_position/trajectory", swarm.name);
+            let entity_name = format!("estimation_error/{}", &swarm.name);
+            let err = swarm.estimation_error();
+            viz.log(Command::LogScalarPlot(entity_name, err));
 
+            if let Some(prev_est) = swarm.prev_positions.est_position {
+                let est_trajectory_path = format!("{}/est_position/trajectory", &swarm.name);
                 let swarm_est_position: [f64; 3] = [
                     swarm.est_position.x,
                     swarm.est_position.y,
                     swarm.est_position.z,
                 ];
-
                 let swarm_prev_est_position: [f64; 3] = [prev_est.x, prev_est.y, prev_est.z];
 
                 let est_trajectory = Command::LogTrajectory(
-                    entity_name,
+                    est_trajectory_path,
                     swarm_prev_est_position,
                     swarm_est_position,
                 );
@@ -137,7 +137,7 @@ impl<M: DynamicsModel> Simulation<M> {
             }
 
             if let Some(prev_true) = swarm.prev_positions.true_position {
-                let entity_name = format!("{}/true_position/trajectory", swarm.name);
+                let true_trajectory_path = format!("{}/true_position/trajectory", &swarm.name);
 
                 let pos = swarm.dynamics_model.position();
                 let swarm_true_position: [f64; 3] = [pos.x, pos.y, pos.z];
@@ -145,7 +145,7 @@ impl<M: DynamicsModel> Simulation<M> {
                 let swarm_prev_true_position: [f64; 3] = [prev_true.x, prev_true.y, prev_true.z];
 
                 let true_trajectory = Command::LogTrajectory(
-                    entity_name,
+                    true_trajectory_path,
                     swarm_prev_true_position,
                     swarm_true_position,
                 );
@@ -154,6 +154,7 @@ impl<M: DynamicsModel> Simulation<M> {
         }
 
         if frame == 0 {
+            let anchors_path = String::from("anchors");
             let anchors_position: Vec<[f64; 3]> = self
                 .anchors
                 .iter()
@@ -162,10 +163,8 @@ impl<M: DynamicsModel> Simulation<M> {
                     [v.x, v.y, v.z]
                 })
                 .collect();
-
-            let entity_name = String::from("anchors");
             viz.log(Command::LogPoints(
-                entity_name,
+                anchors_path,
                 anchors_position,
                 anchors_size,
                 None,
