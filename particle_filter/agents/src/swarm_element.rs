@@ -104,6 +104,31 @@ where
         self.prev_positions.true_position = Some(self.dynamics_model.position());
         self.dynamics_model.step(dt, &mut rng());
     }
+
+    pub fn debug_print(&self) {
+        println!("=== SwarmElement [{}] ===", self.name);
+
+        let pos = self.dynamics_model.position();
+        let vel = self.dynamics_model.velocity();
+        println!("Dynamics position: {:?}", pos);
+        println!("Dynamics velocity: {:?}", vel);
+
+        println!("PF estimated position: {:?}", self.est_position);
+        let pf = &self.particle_filter;
+        let n = pf.particles.len();
+        println!("Particle filter: {} particles", n);
+        let ess = pf.ess();
+        println!("Current ESS: {:.2}", ess);
+
+        if n > 0 {
+            println!("First 3 particles:");
+            for (i, p) in pf.particles.iter().take(3).enumerate() {
+                println!("  [{}] pos={:?}, log_w={:.3}", i, p.position, p.log_weight);
+            }
+        }
+
+        println!("=============================");
+    }
 }
 
 impl<M> Default for SwarmElement<M>

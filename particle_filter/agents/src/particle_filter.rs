@@ -1,9 +1,9 @@
-use std::collections::HashSet;
 use std::usize;
 
 use nalgebra::Vector3;
 use rand::distr::Uniform;
-use rand::{rng, Rng};
+use rand::Rng;
+use rand_distr::{Distribution, StandardNormal};
 use rayon::prelude::*;
 
 use crate::dynamics_model::DynamicsModel;
@@ -159,15 +159,17 @@ impl ParticleFilter {
     ) where
         M: DynamicsModel + Sync,
     {
-        self.particles.par_iter_mut().for_each_init(
-            || rng(),
-            |rng, p| {
-                p.position = dynamics_model.predict_next_state(dt, p.position, velocity, rng);
-            },
-        );
+        let mut rng = rand::rng();
+        self.particles.iter_mut().for_each(|p| {
+            p.position = dynamics_model.predict_next_state(dt, p.position, velocity, &mut rng);
+        });
     }
 
     pub fn update_weights(&mut self, ranging: f64, pos: Vector3<f64>, sigma: f64) {
+        assert!(
+            sigma > 0.0,
+            "sigma must be > 0 - Perfect measurements not implmented yet"
+        );
         let inv_var = 1.0 / sigma.powi(2);
         self.particles.par_iter_mut().for_each(|p| {
             let pred = (p.position - pos).norm();
@@ -176,7 +178,44 @@ impl ParticleFilter {
         });
     }
 
-    fn ess(&self) -> f64 {
+    // Slightly jitter particle positions to break exact clones after resampling.
+    pub fn roughen_positions(&mut self, c: f64) {
+        let n = self.particles.len();
+        if n == 0 {
+            return;
+        }
+
+        // compute span in one pass
+        let mut min = self.particles[0].position;
+        let mut max = self.particles[0].position;
+        for p in &self.particles {
+            min = min.inf(&p.position);
+            max = max.sup(&p.position);
+        }
+        let span: Vector3<f64> = max - min;
+
+        // bandwidth h = c * N^{-1/d}, d=3
+        let h = c * (n as f64).powf(-1.0 / 3.0);
+
+        // per-axis std, with tiny floor to avoid zero
+        let eps = 1e-12;
+        let sx = (h * span.x).max(eps);
+        let sy = (h * span.y).max(eps);
+        let sz = (h * span.z).max(eps);
+
+        let mut rng = rand::rng();
+        for p in &mut self.particles {
+            let dx = sx * Distribution::<f64>::sample(&StandardNormal, &mut rng);
+            let dy = sy * Distribution::<f64>::sample(&StandardNormal, &mut rng);
+            let dz = sz * Distribution::<f64>::sample(&StandardNormal, &mut rng);
+
+            p.position.x += dx;
+            p.position.y += dy;
+            p.position.z += dz;
+        }
+    }
+
+    pub fn ess(&self) -> f64 {
         let w = self.linear_weights();
         let sumsq: f64 = w.iter().map(|wi| wi * wi).sum();
         if sumsq > 0.0 {
@@ -196,10 +235,6 @@ impl ParticleFilter {
         } else if ess < threshold {
             let w = self.linear_weights();
 
-            let mut rng = rand::rng();
-            let u0 = rng.random::<f64>() / (n as f64);
-            let positions: Vec<f64> = (0..n).map(|j| u0 + (j as f64) / (n as f64)).collect();
-
             let mut cum_weights = Vec::with_capacity(n);
             let mut csum = 0.0;
             for wi in &w {
@@ -211,21 +246,26 @@ impl ParticleFilter {
                 *last = 1.0;
             }
 
-            let mut seen = HashSet::new();
-            let mut unique_draws = Vec::with_capacity(n);
-            let mut i = 0;
-            for pos in positions {
-                while i + 1 < n && pos > cum_weights[i] {
+            let mut rng = rand::rng();
+            let u0 = rng.random::<f64>() / (n as f64);
+
+            let mut out = Vec::with_capacity(n);
+            let mut i = 0usize;
+            for j in 0..n {
+                let u = u0 + (j as f64) / (n as f64);
+                while i < n - 1 && u > cum_weights[i] {
                     i += 1;
                 }
-
-                if seen.insert(i) {
-                    unique_draws.push(self.particles[i].clone());
-                }
+                out.push(self.particles[i].clone());
             }
 
-            self.particles = unique_draws;
-            self.normalize_weights();
+            self.particles = out;
+            let logw = -(n as f64).ln();
+            for p in &mut self.particles {
+                p.log_weight = logw
+            }
+
+            self.roughen_positions(0.5);
         }
     }
 }
