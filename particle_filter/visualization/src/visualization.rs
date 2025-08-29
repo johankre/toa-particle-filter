@@ -1,10 +1,12 @@
 use rerun::archetypes::Clear;
-use rerun::{Points3D, Scalars, SpawnOptions};
+use rerun::{Points3D, RecordingStream, Scalars, SpawnOptions};
 use std::collections::HashMap;
 use std::{
     sync::mpsc::{self, SyncSender},
     thread::{self, JoinHandle},
 };
+
+use crate::terrain_shape;
 
 pub enum Command {
     SetFrame(i64),
@@ -147,6 +149,17 @@ impl RerunVisualization {
             .unwrap()
             .send(command)
             .expect("logging thread has died unexpectedly");
+    }
+
+    #[allow(dead_code)]
+    fn draw_terrain(rec: &RecordingStream) {
+        let contours = terrain_shape::load_contours_centered("contours.shp")
+            .expect("Unable to load contours from file");
+        for (i, strip) in contours.iter().enumerate() {
+            let path = format!("/contours/{i:06}");
+            rec.log_static(path, &rerun::LineStrips3D::new([strip.clone()]))
+                .expect("Unable to draw tarrain contours");
+        }
     }
 }
 
