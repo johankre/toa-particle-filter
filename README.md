@@ -73,4 +73,5 @@ fn main() {
     sim.run(time_steps, step_size);
 }
 ```
-![TOA-Example](https://github.com/user-attachments/assets/974f15fd-e6be-4ef1-b20d-1dc456505120)
+![toa-example](https://github.com/user-attachments/assets/4a92a797-98a8-464b-a30c-7a2f63dc1032)
+
